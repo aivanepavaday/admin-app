@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rappels — Admin</title>
+  <link rel="stylesheet" href="rappels.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <a href="index.html" class="logo" style="text-decoration:none">⬡ Admin</a>
+      <nav class="nav">
+        <a href="index.html"        class="nav-link">Accueil</a>
+        <a href="index.html#docs"   class="nav-link">Documents</a>
+        <a href="demarches.html"    class="nav-link">Démarches</a>
+        <a href="medical.html"      class="nav-link">Santé</a>
+        <a href="surveillance.html" class="nav-link">Surveillance Gmail</a>
+        <a href="rappels.html"      class="nav-link active">
+          Rappels
+          <span id="rappels-badge" class="rappels-badge hidden">0</span>
+        </a>
+        <a href="parametres.html" class="nav-link">Paramètres</a>
+      </nav>
+      <div id="nav-user-profile"></div>
+      <span class="sync-dot sync-ok" title="Synchronisé"></span>
+    </header>
+
+    <!-- ── Titre ── -->
+    <div class="page-top">
+      <div>
+        <h1 class="page-title">Rappels médicaux</h1>
+        <p class="page-desc">Expirations d'ordonnances et prises de sang à effectuer</p>
+      </div>
+      <button id="clear-all-btn" class="clear-all-btn hidden" title="Tout rejeter">
+        Tout rejeter
+      </button>
+    </div>
+
+    <!-- ── Liste des rappels ── -->
+    <div id="rappels-list" class="rappels-list">
+      <!-- injecté par rappels.js -->
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="rappels.js"></script>
+</body>
+</html>

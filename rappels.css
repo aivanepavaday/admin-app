@@ -1,0 +1,233 @@
+/* ══════════════════════════════════════════════════════════════════
+   rappels.css — Page des rappels médicaux
+   ══════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0a0b;
+  --surface:   #111113;
+  --surface-2: #16161a;
+  --border:    #1e1e22;
+  --border-hi: #2e2e35;
+  --text:      #e8e8ed;
+  --muted:     #5a5a6a;
+  --accent:    #6c6aff;
+  --danger:    #ff4d6a;
+  --warning:   #f0a500;
+  --success:   #3ecf8e;
+  --radius:    12px;
+  --font:      'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html { font-size: 16px; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 1.5rem 4rem;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.logo {
+  font-size: 1rem; font-weight: 600;
+  letter-spacing: .05em;
+  color: var(--text); opacity: .9;
+}
+
+.nav { display: flex; gap: .25rem; flex-wrap: wrap; }
+
+.nav-link {
+  font-size: .82rem; color: var(--muted);
+  text-decoration: none;
+  padding: .35rem .75rem; border-radius: 8px;
+  transition: color .15s, background .15s;
+  display: inline-flex; align-items: center; gap: .35rem;
+}
+.nav-link:hover  { color: var(--text); background: var(--surface); }
+.nav-link.active { color: var(--text); background: var(--border-hi); }
+
+.rappels-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--danger);
+  color: #fff; font-size: .6rem; font-weight: 700;
+  min-width: 15px; height: 15px; padding: 0 4px;
+  border-radius: 99px;
+}
+
+/* ── En-tête de page ── */
+.page-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.2rem; font-weight: 700;
+}
+
+.page-desc {
+  font-size: .8rem; color: var(--muted);
+  margin-top: .2rem;
+}
+
+.clear-all-btn {
+  background: none;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: var(--font); font-size: .75rem;
+  border-radius: 8px; padding: .35rem .85rem;
+  cursor: pointer; white-space: nowrap;
+  transition: color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.clear-all-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ── Liste de rappels ── */
+.rappels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Groupe (En retard / Cette semaine / Plus tard / Rejetés) */
+.rappel-group {}
+
+.rappel-group-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: .65rem;
+  padding-left: .1rem;
+}
+
+.rappel-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+/* Carte de rappel */
+.rappel-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .9rem 1rem;
+  transition: border-color .15s;
+}
+.rappel-card:hover { border-color: var(--border-hi); }
+.rappel-card.dismissed { opacity: .45; }
+
+/* Pastille de statut */
+.rappel-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: .4rem;
+}
+.rappel-dot.overdue { background: var(--danger); }
+.rappel-dot.soon    { background: var(--warning); }
+.rappel-dot.later   { background: var(--success); }
+.rappel-dot.done    { background: var(--muted); }
+
+/* Contenu */
+.rappel-content { flex: 1; min-width: 0; }
+
+.rappel-label {
+  font-size: .87rem; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.rappel-dates {
+  font-size: .73rem; color: var(--muted);
+  margin-top: .2rem;
+}
+
+.rappel-chip {
+  display: inline-flex; align-items: center;
+  font-size: .65rem; font-weight: 600;
+  padding: .15rem .55rem;
+  border-radius: 99px;
+  margin-top: .4rem;
+}
+.rappel-chip.overdue { background: rgba(255,77,106,.12); color: var(--danger); }
+.rappel-chip.soon    { background: rgba(240,165,0,.12);  color: var(--warning); }
+.rappel-chip.later   { background: rgba(62,207,142,.1);  color: var(--success); }
+.rappel-chip.done    { background: var(--surface-2);      color: var(--muted); }
+
+/* Actions */
+.rappel-actions { display: flex; flex-direction: column; gap: .35rem; flex-shrink: 0; }
+
+.rappel-dismiss-btn {
+  background: none;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: var(--font); font-size: .72rem;
+  border-radius: 7px; padding: .3rem .7rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.rappel-dismiss-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+.rappel-delete-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font); font-size: .7rem;
+  cursor: pointer;
+  padding: .2rem;
+  transition: color .15s;
+  text-align: center;
+}
+.rappel-delete-btn:hover { color: var(--danger); }
+
+/* État vide */
+.rappels-empty {
+  display: flex; flex-direction: column;
+  align-items: center; gap: .9rem;
+  padding: 4rem 0;
+  color: var(--muted); text-align: center;
+}
+.rappels-empty svg   { width: 44px; height: 44px; opacity: .2; }
+.rappels-empty p     { font-size: .9rem; }
+.rappels-empty span  { font-size: .78rem; opacity: .6; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border-hi);
+  border-radius: 9px; padding: .65rem 1.15rem;
+  font-size: .82rem; color: var(--text);
+  z-index: 300; white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  transition: opacity .25s, transform .25s;
+}
+.toast.hidden { opacity: 0; transform: translateX(-50%) translateY(6px); pointer-events: none; }
+
+.hidden { display: none !important; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 99px; }
+
+@media (max-width: 560px) {
+  .app { padding: 0 1rem 4rem; }
+  .nav .nav-link:not(.active) { display: none; }
+}

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paramètres — Admin</title>
+  <link rel="stylesheet" href="parametres.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <a href="index.html" class="logo">⬡ Admin</a>
+      <nav class="nav">
+        <a href="index.html"        class="nav-link">Accueil</a>
+        <a href="index.html#docs"    class="nav-link">Documents</a>
+        <a href="demarches.html"    class="nav-link">Démarches</a>
+        <a href="medical.html"      class="nav-link">Santé</a>
+        <a href="surveillance.html" class="nav-link">Surveillance Gmail</a>
+      </nav>
+      <div id="nav-user-profile"></div>
+      <span class="sync-dot sync-ok" title="Synchronisé"></span>
+    </header>
+
+    <main class="main">
+
+      <h1 class="page-title">Paramètres</h1>
+
+      <!-- ══ Section : Clé API Anthropic ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+          </svg>
+          API Anthropic
+        </div>
+
+        <p class="section-desc">
+          Connectez votre compte Anthropic pour activer l'assistant IA.
+          Obtenez votre clé sur <strong>console.anthropic.com</strong>.
+        </p>
+
+        <!-- Indicateur de statut -->
+        <div id="api-status" class="api-status status-unknown">
+          <span class="status-dot"></span>
+          <span class="status-text" id="status-text">Non configurée</span>
+        </div>
+
+        <!-- Champ clé API -->
+        <div class="field">
+          <label class="field-label" for="api-key-input">Clé API</label>
+          <div class="key-input-wrap">
+            <input
+              id="api-key-input"
+              class="field-input"
+              type="password"
+              placeholder="sk-ant-api03-…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="toggle-visibility" class="key-visibility-btn" title="Afficher / masquer">
+              <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Boutons action -->
+        <div class="key-actions">
+          <button id="test-btn" class="btn-secondary">
+            <svg id="test-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <span id="test-label">Tester la connexion</span>
+          </button>
+          <button id="save-btn" class="btn-primary">Enregistrer</button>
+        </div>
+
+        <!-- Résultat du test -->
+        <div id="test-result" class="test-result hidden"></div>
+      </section>
+
+      <!-- ══ Section : Analyse automatique ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+            <path d="M11 8v3l2 2"/>
+          </svg>
+          Analyse automatique des documents
+        </div>
+
+        <p class="section-desc">
+          Lorsqu'elle est activée, chaque document importé est analysé par Claude pour proposer
+          automatiquement un nom de fichier descriptif et la catégorie la plus adaptée.
+          Nécessite une clé API configurée.
+        </p>
+
+        <div class="toggle-row">
+          <div>
+            <p class="toggle-row-label">Analyse à l'import</p>
+            <p class="toggle-row-desc">Analyse chaque document avec l'IA lors de l'import</p>
+          </div>
+          <label class="param-toggle">
+            <input type="checkbox" id="auto-analyse-toggle" checked />
+            <span class="param-toggle-track"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- ══ Section : Modèle ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Modèle utilisé
+        </div>
+        <div class="model-info">
+          <span class="model-badge">claude-sonnet-4-20250514</span>
+          <span class="model-note">Claude Sonnet 4 — rapide et précis pour les tâches administratives</span>
+        </div>
+      </section>
+
+      <!-- ══ Section : Conversation ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Conversation
+        </div>
+        <p class="section-desc">
+          L'historique de conversation est conservé en mémoire tant que la page est ouverte.
+          Il n'est pas sauvegardé entre les sessions.
+        </p>
+        <button id="clear-history-btn" class="btn-danger-outline">
+          Effacer l'historique de conversation
+        </button>
+      </section>
+
+      <!-- ══ Section : Compte Firebase ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          Compte &amp; synchronisation
+        </div>
+        <p class="section-desc">
+          Connecté avec votre compte Google. Vos données sont synchronisées en temps réel
+          entre tous vos appareils via Firebase.
+        </p>
+        <div id="firebase-user-card" class="firebase-user-card hidden">
+          <div id="firebase-user-avatar-wrap"></div>
+          <div class="firebase-user-info">
+            <div id="firebase-user-name" class="firebase-user-name"></div>
+            <div id="firebase-user-email" class="firebase-user-email"></div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <button id="signout-btn" class="btn-signout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Se déconnecter
+          </button>
+        </div>
+      </section>
+
+      <!-- ══ Section : Sécurité ══ -->
+      <section class="settings-section">
+        <div class="section-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Sécurité &amp; confidentialité
+        </div>
+        <ul class="security-list">
+          <li>
+            <span class="sec-dot ok"></span>
+            Votre clé API est stockée uniquement dans votre navigateur (localStorage)
+          </li>
+          <li>
+            <span class="sec-dot ok"></span>
+            Les conversations sont envoyées uniquement à l'API Anthropic
+          </li>
+          <li>
+            <span class="sec-dot ok"></span>
+            Vos documents sont synchronisés de façon privée via Firebase (liés à votre compte Google)
+          </li>
+          <li>
+            <span class="sec-dot warn"></span>
+            Ne partagez jamais votre clé API et ne déployez pas cette app publiquement
+          </li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="parametres.js"></script>
+</body>
+</html>

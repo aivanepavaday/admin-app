@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surveillance Gmail — Admin</title>
+  <link rel="stylesheet" href="surveillance.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <a href="index.html" class="logo">⬡ Admin</a>
+      <nav class="nav">
+        <a href="index.html"        class="nav-link">Accueil</a>
+        <a href="index.html#docs"    class="nav-link">Documents</a>
+        <a href="demarches.html"    class="nav-link">Démarches</a>
+        <a href="medical.html"      class="nav-link">Santé</a>
+        <a href="surveillance.html" class="nav-link active">Surveillance Gmail</a>
+        <a href="parametres.html"   class="nav-link">Paramètres</a>
+      </nav>
+      <div id="nav-user-profile"></div>
+      <span class="sync-dot sync-ok" title="Synchronisé"></span>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 1 : Liste des règles
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-list" class="view active">
+
+      <div class="list-header">
+        <div class="list-header-left">
+          <h1>Surveillance Gmail</h1>
+          <p>Import automatique de vos documents</p>
+        </div>
+        <label class="toggle-wrap" title="Activer / désactiver la surveillance">
+          <span class="toggle-label" id="global-toggle-label">Active</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="global-toggle" checked />
+            <span class="toggle-track"></span>
+          </label>
+        </label>
+      </div>
+
+      <!-- Panneau fréquence + dernière vérification -->
+      <div class="control-panel">
+        <div class="control-freq">
+          <span class="control-label">Fréquence</span>
+          <select id="global-freq" class="freq-select">
+            <option value="15min">Toutes les 15 min</option>
+            <option value="1h">Toutes les heures</option>
+            <option value="1jour">Une fois par jour</option>
+          </select>
+        </div>
+        <div class="control-divider"></div>
+        <div class="last-check-wrap">
+          <span class="control-label">Dernière vérif.</span>
+          <span id="last-check-text" class="last-check-text">Jamais vérifiée</span>
+        </div>
+        <button id="check-now-btn" class="check-now-btn">Vérifier maintenant</button>
+      </div>
+
+      <!-- Liste des règles (rendue par JS) -->
+      <div id="rules-list" class="rules-list"></div>
+
+      <!-- Bouton flottant -->
+      <button id="add-rule-btn" class="add-rule-fab">+ Ajouter une règle</button>
+
+    </div><!-- /view-list -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 2 : Choix du template
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-add" class="view">
+
+      <button class="view-back" id="back-to-list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Retour
+      </button>
+
+      <h2 class="view-heading">Nouvelle règle</h2>
+      <p class="view-desc">Choisissez un modèle ou créez une règle personnalisée</p>
+
+      <div class="template-grid" id="template-grid">
+        <!-- Injecté par JS -->
+      </div>
+
+    </div><!-- /view-add -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 3 : Wizard (formulaire par template)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-wizard" class="view">
+
+      <button class="view-back" id="back-to-add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Choisir un autre modèle
+      </button>
+
+      <!-- Contenu injecté par renderWizard(template) -->
+      <div id="wizard-body"></div>
+
+    </div><!-- /view-wizard -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 4 : Succès
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-success" class="view">
+      <!-- Injecté par showSuccess(rule) -->
+      <div id="success-body" class="success-view"></div>
+    </div>
+
+  </div><!-- /.app -->
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="surveillance.js"></script>
+</body>
+</html>

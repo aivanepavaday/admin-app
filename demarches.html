@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Démarches — Admin</title>
+  <link rel="stylesheet" href="demarches.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <a href="index.html" class="logo">⬡ Admin</a>
+      <nav class="nav">
+        <a href="index.html"        class="nav-link">Accueil</a>
+        <a href="index.html#docs"    class="nav-link">Documents</a>
+        <a href="demarches.html"    class="nav-link active">Démarches</a>
+        <a href="medical.html"      class="nav-link">Santé</a>
+        <a href="surveillance.html" class="nav-link">Surveillance Gmail</a>
+        <a href="parametres.html"   class="nav-link">Paramètres</a>
+      </nav>
+      <div id="nav-user-profile"></div>
+      <span class="sync-dot sync-ok" title="Synchronisé"></span>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 1 : Liste des démarches
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-list" class="view active">
+
+      <div class="list-top">
+        <div>
+          <h1 class="view-heading">Démarches</h1>
+          <p class="view-desc">Vérifiez vos documents et suivez vos démarches pas à pas</p>
+        </div>
+      </div>
+
+      <!-- Barre de recherche -->
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          id="search-input"
+          class="search-input"
+          type="search"
+          placeholder="Rechercher une démarche…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="search-clear" class="search-clear hidden" title="Effacer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Grille de cartes -->
+      <div id="demarche-grid" class="demarche-grid">
+        <!-- Injecté par demarches.js -->
+        <div class="loading-placeholder">
+          <div class="spinner"></div>
+          <span>Chargement des démarches…</span>
+        </div>
+      </div>
+
+      <!-- État vide (recherche sans résultats) -->
+      <div id="empty-search" class="empty-search hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <p>Aucune démarche trouvée</p>
+        <span id="empty-query"></span>
+      </div>
+
+    </div><!-- /view-list -->
+
+    <!-- ══════════════════════════════════════════════════════════
+         VUE 2 : Détail d'une démarche
+         ══════════════════════════════════════════════════════════ -->
+    <div id="view-detail" class="view">
+
+      <button id="back-btn" class="view-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Retour
+      </button>
+
+      <!-- Contenu injecté par renderDetail() -->
+      <div id="detail-body"></div>
+
+    </div><!-- /view-detail -->
+
+  </div><!-- /.app -->
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="demarches.js"></script>
+</body>
+</html>

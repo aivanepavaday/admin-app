@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Santé — Admin</title>
+  <!-- pdf.js pour l'analyse des PDFs médicaux -->
+  <script type="module">
+    import * as pdfjs from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+    window.pdfjsLib = pdfjs;
+  </script>
+  <link rel="stylesheet" href="medical.css" />
+  <link rel="stylesheet" href="shared.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header class="header">
+      <a href="index.html" class="logo" style="text-decoration:none">⬡ Admin</a>
+      <nav class="nav">
+        <a href="index.html"        class="nav-link">Accueil</a>
+        <a href="index.html#docs"    class="nav-link">Documents</a>
+        <a href="demarches.html"    class="nav-link">Démarches</a>
+        <a href="medical.html"      class="nav-link active">Santé</a>
+        <a href="surveillance.html" class="nav-link">Surveillance Gmail</a>
+        <a href="parametres.html"   class="nav-link">Paramètres</a>
+      </nav>
+      <div id="nav-user-profile"></div>
+      <span class="sync-dot sync-ok" title="Synchronisé"></span>
+    </header>
+
+    <!-- ── Zone d'import ── -->
+    <div class="upload-bar">
+      <div class="upload-bar-text">
+        <p class="upload-title">Analyser un document médical</p>
+        <p class="upload-desc">Ordonnance, résultat de prise de sang…</p>
+      </div>
+      <button id="upload-btn" class="upload-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Importer
+      </button>
+      <input
+        type="file" id="file-input" multiple
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        hidden
+      />
+    </div>
+
+    <!-- ── Filtres sous-catégories ── -->
+    <div class="cat-filter" id="cat-filter">
+      <button class="cat-pill active" data-cat="">Tous</button>
+      <button class="cat-pill" data-cat="ordonnance">Ordonnances</button>
+      <button class="cat-pill" data-cat="prise_de_sang">Prises de sang</button>
+      <button class="cat-pill" data-cat="autre">Autres</button>
+    </div>
+
+    <!-- ── Grille de documents ── -->
+    <div id="drop-zone" class="drop-zone">
+      <div id="drop-overlay" class="drop-overlay hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p>Déposer pour analyser</p>
+      </div>
+
+      <div id="doc-grid" class="doc-grid">
+        <div class="doc-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="2"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+            <line x1="9" y1="16" x2="13" y2="16"/>
+          </svg>
+          <p>Aucun document médical</p>
+          <span>Glissez un fichier ici ou cliquez sur Importer</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.app -->
+
+  <!-- ── Overlay d'analyse ── -->
+  <div id="analysis-overlay" class="analysis-overlay hidden" role="dialog" aria-modal="true">
+    <div class="analysis-box">
+
+      <!-- Bouton × pour annuler l'import -->
+      <button id="analysis-close-x" class="am-close-btn" title="Annuler">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      <!-- État : chargement -->
+      <div id="analysis-loading" class="analysis-loading">
+        <div class="analysis-spinner"></div>
+        <p class="analysis-loading-text">Analyse en cours…</p>
+        <p class="analysis-loading-sub" id="analysis-filename"></p>
+      </div>
+
+      <!-- État : résultat -->
+      <div id="analysis-result" class="analysis-result hidden">
+        <div class="analysis-result-header">
+          <span id="result-type-icon" class="result-type-icon"></span>
+          <div>
+            <p id="result-type-label" class="result-type-label"></p>
+            <p id="result-filename" class="result-filename"></p>
+          </div>
+        </div>
+
+        <div id="result-fields" class="result-fields"></div>
+
+        <div id="reminder-proposal" class="reminder-proposal hidden">
+          <div class="reminder-proposal-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <div class="reminder-proposal-text">
+            <p class="reminder-proposal-title">Rappel suggéré</p>
+            <p id="reminder-proposal-body" class="reminder-proposal-body"></p>
+          </div>
+          <button id="add-reminder-btn" class="add-reminder-btn">Ajouter</button>
+        </div>
+
+        <!-- Champs éditables avant confirmation -->
+        <div class="result-edit-fields">
+          <div class="am-field">
+            <span class="am-field-label">Nom de fichier</span>
+            <input id="result-name-input" class="am-field-input am-field-edit" type="text" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="am-field">
+            <span class="am-field-label">Catégorie</span>
+            <select id="result-cat-select" class="am-field-select am-field-edit">
+              <option value="Ordonnances">Ordonnances</option>
+              <option value="Prises de sang">Prises de sang</option>
+              <option value="Santé">Santé</option>
+            </select>
+          </div>
+          <p class="am-edit-hint">L'IA a analysé votre document. Vous pouvez modifier le nom et la catégorie avant de confirmer.</p>
+        </div>
+
+        <div class="analysis-actions">
+          <button id="analysis-save-btn" class="analysis-save-btn">Confirmer</button>
+        </div>
+      </div>
+
+      <!-- État : erreur -->
+      <div id="analysis-error" class="analysis-error hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p id="analysis-error-msg" class="analysis-error-msg"></p>
+        <button id="analysis-error-close" class="analysis-cancel-btn">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Visionneuse de document ── -->
+  <div id="viewer-modal" class="viewer-modal hidden" role="dialog" aria-modal="true">
+    <div class="viewer-box">
+      <div class="viewer-header">
+        <span id="viewer-name" class="viewer-name"></span>
+        <button id="viewer-close" class="viewer-close" title="Fermer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="viewer-content" class="viewer-content"></div>
+    </div>
+  </div>
+
+  <!-- ── Modale de modification de document ── -->
+  <div id="edit-doc-modal" class="edit-doc-modal hidden" role="dialog" aria-modal="true">
+    <div class="edit-doc-box">
+      <div class="edit-doc-header">
+        <span class="edit-doc-title">Modifier le document</span>
+        <button id="edit-doc-close" class="am-close-btn" title="Annuler">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="edit-doc-fields">
+        <div class="edit-doc-field">
+          <label class="edit-doc-label" for="edit-doc-name">Nom du fichier</label>
+          <input id="edit-doc-name" class="edit-doc-input" type="text" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="edit-doc-field">
+          <label class="edit-doc-label" for="edit-doc-cat">Catégorie</label>
+          <select id="edit-doc-cat" class="edit-doc-select">
+            <option value="Identité">Identité</option>
+            <option value="Logement">Logement</option>
+            <option value="Revenus">Revenus</option>
+            <option value="Impôts">Impôts</option>
+            <option value="Assurance">Assurance</option>
+            <option value="Santé">Santé</option>
+            <option value="Téléphone">Téléphone</option>
+            <option value="Énergie">Énergie</option>
+            <option value="Autres">Autres</option>
+          </select>
+        </div>
+        <div class="edit-doc-field">
+          <label class="edit-doc-label" for="edit-doc-date">Date du document</label>
+          <input id="edit-doc-date" class="edit-doc-input" type="text" placeholder="JJ/MM/AAAA" autocomplete="off" />
+        </div>
+      </div>
+      <div class="edit-doc-footer">
+        <button id="edit-doc-save" class="edit-doc-save-btn">Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="medical.js"></script>
+</body>
+</html>

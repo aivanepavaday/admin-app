@@ -1,0 +1,245 @@
+/* ══════════════════════════════════════════════════════════════════
+   shared.css — Styles partagés Firebase : Auth, profil nav, sync
+   Inclus dans toutes les pages HTML de l'application
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Overlay d'authentification ── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1.5rem;
+  transition: opacity 0.25s;
+}
+.auth-overlay.hidden { display: none; }
+
+.auth-card {
+  background: #111113;
+  border: 1px solid #1e1e22;
+  border-radius: 18px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  text-align: center;
+}
+
+.auth-logo {
+  font-size: 2.4rem;
+  color: #6c6aff;
+  line-height: 1;
+}
+
+.auth-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #e8e8ed;
+  margin: 0;
+}
+
+.auth-subtitle {
+  font-size: 0.88rem;
+  color: #5a5a6a;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.auth-google-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #ffffff;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 10px;
+  padding: 0.72rem 1.35rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 0.5rem;
+}
+.auth-google-btn:hover:not(:disabled) { background: #f0f0f0; transform: translateY(-1px); }
+.auth-google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.auth-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ccc;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
+.auth-err {
+  font-size: 0.78rem;
+  color: #ff4d6a;
+  margin: 0;
+}
+.auth-err.hidden { display: none; }
+
+.auth-note {
+  font-size: 0.73rem;
+  color: #3a3a4a;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid #1e1e22;
+  width: 100%;
+}
+
+/* ── Profil utilisateur dans la nav ── */
+#nav-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+  cursor: default;
+}
+
+.nav-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #2e2e35;
+  flex-shrink: 0;
+}
+
+.nav-avatar--initials {
+  background: #6c6aff;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-user-name {
+  font-size: 0.8rem;
+  color: #7a7a8a;
+  white-space: nowrap;
+}
+
+/* ── Indicateur de synchronisation ── */
+.sync-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 0.6rem;
+  flex-shrink: 0;
+  transition: background 0.3s;
+  cursor: help;
+}
+.sync-ok      { background: #3ecf8e; }
+.sync-syncing { background: #f0a500; animation: sync-pulse 1s ease-in-out infinite; }
+.sync-offline { background: #5a5a6a; }
+.sync-error   { background: #ff4d6a; }
+
+@keyframes sync-pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ── Barre de progression de migration ── */
+.migration-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8000;
+  background: #111113;
+  border: 1px solid #2e2e35;
+  border-radius: 12px;
+  padding: 0.9rem 1.2rem;
+  min-width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.migration-bar-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.migration-bar-label {
+  font-size: 0.8rem;
+  color: #e8e8ed;
+  font-weight: 500;
+}
+.migration-bar-track {
+  background: #1e1e22;
+  border-radius: 99px;
+  height: 5px;
+  overflow: hidden;
+}
+.migration-bar-fill {
+  height: 100%;
+  background: #6c6aff;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.migration-bar-pct {
+  font-size: 0.7rem;
+  color: #5a5a6a;
+  text-align: right;
+}
+
+/* ── Bouton déconnexion (parametres.html) ── */
+.btn-signout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: 1px solid #2e2e35;
+  color: #7a7a8a;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.55rem 1rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.btn-signout:hover { color: #ff4d6a; border-color: #ff4d6a; background: rgba(255,77,106,0.07); }
+.btn-signout svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* ── Section Firebase dans paramètres ── */
+.firebase-user-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: #111113;
+  border: 1px solid #1e1e22;
+  border-radius: 10px;
+}
+.firebase-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #2e2e35;
+  flex-shrink: 0;
+}
+.firebase-user-avatar--initials {
+  background: #6c6aff;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.firebase-user-info { flex: 1; min-width: 0; }
+.firebase-user-name { font-size: 0.9rem; font-weight: 600; color: #e8e8ed; }
+.firebase-user-email { font-size: 0.75rem; color: #5a5a6a; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
