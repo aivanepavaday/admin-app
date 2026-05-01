@@ -5,28 +5,46 @@
 
 import { auth, googleProvider } from './firebase.js';
 import {
-  signInWithPopup, signInWithRedirect, getRedirectResult,
+  signInWithRedirect, getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged, setPersistence, browserLocalPersistence,
 } from 'firebase/auth';
+
+/* Clé localStorage pour le backup de session */
+const LS_BACKUP_KEY = 'auth_user_backup';
 
 /* Utilisateur courant (null = non connecté) */
 let _user = null;
 export const getUser = () => _user;
 
-const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+/* ── Backup localStorage — filet de sécurité sur mobile ── */
+function _saveBackup(user) {
+  try {
+    localStorage.setItem(LS_BACKUP_KEY, JSON.stringify({
+      uid: user.uid, email: user.email,
+      displayName: user.displayName, photoURL: user.photoURL,
+      ts: Date.now(),
+    }));
+  } catch (_) {}
+}
 
-/* Connexion Google — popup sur desktop, redirect sur mobile */
+function _clearBackup() {
+  try { localStorage.removeItem(LS_BACKUP_KEY); } catch (_) {}
+}
+
+function _hasBackup() {
+  try { return !!localStorage.getItem(LS_BACKUP_KEY); } catch (_) { return false; }
+}
+
+/* Connexion Google — toujours par redirect (mobile et desktop) */
 export async function signInWithGoogle() {
   await setPersistence(auth, browserLocalPersistence);
-  if (isMobile) {
-    return signInWithRedirect(auth, googleProvider);
-  }
-  return signInWithPopup(auth, googleProvider);
+  return signInWithRedirect(auth, googleProvider);
 }
 
 /* Déconnexion */
 export function signOut() {
+  _clearBackup();
   return fbSignOut(auth);
 }
 
@@ -72,7 +90,7 @@ function _injectOverlay() {
     err.classList.add('hidden');
     try {
       await signInWithGoogle();
-      /* Sur mobile signInWithRedirect redirige la page — on ne restaure pas le bouton */
+      /* signInWithRedirect redirige la page — le bouton reste désactivé */
     } catch (e) {
       btn.disabled = false;
       btn.innerHTML = `${GOOGLE_SVG} Continuer avec Google`;
@@ -107,6 +125,105 @@ export function setSyncState(state) {
                 offline: 'Hors ligne', error: 'Erreur de sync' }[state] || '';
 }
 
+/* ── Helpers d'affichage ── */
+function _showApp(user) {
+  document.getElementById('auth-overlay')?.classList.add('hidden');
+  _updateNavProfile(user);
+  setSyncState(navigator.onLine ? 'ok' : 'offline');
+}
+
+function _showLogin() {
+  document.getElementById('auth-overlay')?.classList.remove('hidden');
+  _updateNavProfile(null);
+}
+
+function _showAuthError(err) {
+  const errEl = document.getElementById('auth-err');
+  if (!errEl) return;
+  errEl.textContent = 'Connexion échouée — ' + (err.code || err.message);
+  errEl.classList.remove('hidden');
+}
+
+/* ── Résolution asynchrone de l'auth ──────────────────────────────────
+   Flow :
+   1. setPersistence AVANT tout appel Firebase Auth
+   2. await getRedirectResult() → user trouvé → backup + app
+   3. onAuthStateChanged :
+        - user     → backup + app
+        - null + backup → attendre 3s (Firebase peut être lent à restaurer)
+        - null sans backup → afficher login immédiatement
+   4. Timeout global 5s → afficher login si toujours rien
+   ─────────────────────────────────────────────────────────────────── */
+async function _resolveAuth() {
+  /* Persistance locale avant tout — obligatoire sur mobile */
+  await setPersistence(auth, browserLocalPersistence);
+
+  /* ÉTAPE 1 : résultat du redirect OAuth (retour depuis Google) */
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      _user = result.user;
+      _saveBackup(_user);
+      _showApp(_user);
+      /* Listener continu pour détecter les déconnexions */
+      onAuthStateChanged(auth, u => {
+        _user = u;
+        if (u) { _saveBackup(u); _showApp(u); }
+        else   { _clearBackup(); _showLogin(); }
+      });
+      return _user;
+    }
+  } catch (err) {
+    _showAuthError(err);
+  }
+
+  /* ÉTAPES 2, 3 & 4 : session existante, backup, ou aucun user */
+  return new Promise(resolve => {
+    let resolved   = false;
+    let loginShown = false;
+
+    function _resolveUser(user) {
+      if (resolved) return;
+      resolved = true;
+      resolve(user);
+    }
+
+    function _showLoginOnce() {
+      if (loginShown) return;
+      loginShown = true;
+      _clearBackup();
+      _showLogin();
+    }
+
+    /* Timeout global : 5s sans user → forcer l'écran de connexion */
+    const globalTimeout = setTimeout(_showLoginOnce, 5000);
+
+    onAuthStateChanged(auth, user => {
+      _user = user;
+
+      if (user) {
+        clearTimeout(globalTimeout);
+        _saveBackup(user);
+        _showApp(user);
+        _resolveUser(user);
+        return;
+      }
+
+      /* null — vérifier le backup localStorage */
+      if (_hasBackup() && !loginShown) {
+        /* Firebase restaure peut-être encore la session depuis le stockage local.
+           Attendre 3s avant d'abandonner et d'afficher l'écran de connexion. */
+        setTimeout(() => {
+          if (!resolved) _showLoginOnce();
+        }, 3000);
+      } else {
+        clearTimeout(globalTimeout);
+        _showLoginOnce();
+      }
+    });
+  });
+}
+
 /* ── Point d'entrée principal ────────────────────────────────────────
    Retourne une Promise<FirebaseUser> qui se résout au premier login.
    L'overlay reste visible tant que l'utilisateur n'est pas connecté.
@@ -114,40 +231,8 @@ export function setSyncState(state) {
 export function initAuth() {
   _injectOverlay();
 
-  /* Indicateur hors-ligne */
   window.addEventListener('online',  () => setSyncState('ok'));
   window.addEventListener('offline', () => setSyncState('offline'));
 
-  /* Récupère le résultat de signInWithRedirect (mobile) après retour sur la page */
-  getRedirectResult(auth).catch(err => {
-    if (err.code !== 'auth/no-current-user') {
-      const errEl = document.getElementById('auth-err');
-      if (errEl) {
-        errEl.textContent = 'Connexion échouée — ' + (err.code || err.message);
-        errEl.classList.remove('hidden');
-      }
-    }
-  });
-
-  return new Promise(resolve => {
-    let resolved = false;
-
-    onAuthStateChanged(auth, user => {
-      _user = user;
-
-      if (user) {
-        document.getElementById('auth-overlay')?.classList.add('hidden');
-        _updateNavProfile(user);
-        setSyncState(navigator.onLine ? 'ok' : 'offline');
-
-        if (!resolved) {
-          resolved = true;
-          resolve(user);
-        }
-      } else {
-        document.getElementById('auth-overlay')?.classList.remove('hidden');
-        _updateNavProfile(null);
-      }
-    });
-  });
+  return _resolveAuth();
 }
