@@ -5,46 +5,23 @@
 
 import { auth, googleProvider } from './firebase.js';
 import {
-  signInWithRedirect, getRedirectResult,
+  signInWithPopup,
   signOut as fbSignOut,
   onAuthStateChanged, setPersistence, browserLocalPersistence,
 } from 'firebase/auth';
-
-/* Clé localStorage pour le backup de session */
-const LS_BACKUP_KEY = 'auth_user_backup';
 
 /* Utilisateur courant (null = non connecté) */
 let _user = null;
 export const getUser = () => _user;
 
-/* ── Backup localStorage — filet de sécurité sur mobile ── */
-function _saveBackup(user) {
-  try {
-    localStorage.setItem(LS_BACKUP_KEY, JSON.stringify({
-      uid: user.uid, email: user.email,
-      displayName: user.displayName, photoURL: user.photoURL,
-      ts: Date.now(),
-    }));
-  } catch (_) {}
-}
-
-function _clearBackup() {
-  try { localStorage.removeItem(LS_BACKUP_KEY); } catch (_) {}
-}
-
-function _hasBackup() {
-  try { return !!localStorage.getItem(LS_BACKUP_KEY); } catch (_) { return false; }
-}
-
-/* Connexion Google — toujours par redirect (mobile et desktop) */
+/* Connexion Google — toujours par popup */
 export async function signInWithGoogle() {
   await setPersistence(auth, browserLocalPersistence);
-  return signInWithRedirect(auth, googleProvider);
+  return signInWithPopup(auth, googleProvider);
 }
 
 /* Déconnexion */
 export function signOut() {
-  _clearBackup();
   return fbSignOut(auth);
 }
 
@@ -90,11 +67,15 @@ function _injectOverlay() {
     err.classList.add('hidden');
     try {
       await signInWithGoogle();
-      /* signInWithRedirect redirige la page — le bouton reste désactivé */
+      /* onAuthStateChanged prend le relais et affiche l'app */
     } catch (e) {
       btn.disabled = false;
       btn.innerHTML = `${GOOGLE_SVG} Continuer avec Google`;
-      err.textContent = 'Connexion échouée — ' + (e.code || e.message);
+      if (e.code === 'auth/popup-blocked') {
+        err.textContent = 'Veuillez autoriser les popups pour ce site dans votre navigateur';
+      } else {
+        err.textContent = 'Connexion échouée — ' + (e.code || e.message);
+      }
       err.classList.remove('hidden');
     }
   });
@@ -137,50 +118,12 @@ function _showLogin() {
   _updateNavProfile(null);
 }
 
-function _showAuthError(err) {
-  const errEl = document.getElementById('auth-err');
-  if (!errEl) return;
-  errEl.textContent = 'Connexion échouée — ' + (err.code || err.message);
-  errEl.classList.remove('hidden');
-}
-
-/* ── Résolution asynchrone de l'auth ──────────────────────────────────
-   Flow :
-   1. setPersistence AVANT tout appel Firebase Auth
-   2. await getRedirectResult() → user trouvé → backup + app
-   3. onAuthStateChanged :
-        - user     → backup + app
-        - null + backup → attendre 3s (Firebase peut être lent à restaurer)
-        - null sans backup → afficher login immédiatement
-   4. Timeout global 5s → afficher login si toujours rien
-   ─────────────────────────────────────────────────────────────────── */
+/* ── Résolution de l'auth au chargement ── */
 async function _resolveAuth() {
-  /* Persistance locale avant tout — obligatoire sur mobile */
   await setPersistence(auth, browserLocalPersistence);
 
-  /* ÉTAPE 1 : résultat du redirect OAuth (retour depuis Google) */
-  try {
-    const result = await getRedirectResult(auth);
-    if (result?.user) {
-      _user = result.user;
-      _saveBackup(_user);
-      _showApp(_user);
-      /* Listener continu pour détecter les déconnexions */
-      onAuthStateChanged(auth, u => {
-        _user = u;
-        if (u) { _saveBackup(u); _showApp(u); }
-        else   { _clearBackup(); _showLogin(); }
-      });
-      return _user;
-    }
-  } catch (err) {
-    _showAuthError(err);
-  }
-
-  /* ÉTAPES 2, 3 & 4 : session existante, backup, ou aucun user */
   return new Promise(resolve => {
-    let resolved   = false;
-    let loginShown = false;
+    let resolved = false;
 
     function _resolveUser(user) {
       if (resolved) return;
@@ -188,37 +131,19 @@ async function _resolveAuth() {
       resolve(user);
     }
 
-    function _showLoginOnce() {
-      if (loginShown) return;
-      loginShown = true;
-      _clearBackup();
-      _showLogin();
-    }
-
-    /* Timeout global : 5s sans user → forcer l'écran de connexion */
-    const globalTimeout = setTimeout(_showLoginOnce, 5000);
+    /* Timeout 5s → afficher login si Firebase ne répond pas */
+    const globalTimeout = setTimeout(() => {
+      if (!resolved) _showLogin();
+    }, 5000);
 
     onAuthStateChanged(auth, user => {
       _user = user;
-
+      clearTimeout(globalTimeout);
       if (user) {
-        clearTimeout(globalTimeout);
-        _saveBackup(user);
         _showApp(user);
         _resolveUser(user);
-        return;
-      }
-
-      /* null — vérifier le backup localStorage */
-      if (_hasBackup() && !loginShown) {
-        /* Firebase restaure peut-être encore la session depuis le stockage local.
-           Attendre 3s avant d'abandonner et d'afficher l'écran de connexion. */
-        setTimeout(() => {
-          if (!resolved) _showLoginOnce();
-        }, 3000);
       } else {
-        clearTimeout(globalTimeout);
-        _showLoginOnce();
+        _showLogin();
       }
     });
   });
