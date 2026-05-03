@@ -624,16 +624,21 @@ importConfirmBtn.addEventListener('click', async () => {
 /* Import direct sans analyse */
 async function importDirect(entries) {
   let done = 0;
+  const user = getUser();
   for (const { file, category } of entries) {
     try {
-      await addDocument(file, category);
+      if (user) {
+        await addDocumentSync(user.uid, file, category);
+      } else {
+        await addDocument(file, category);
+      }
       done++;
     } catch (err) {
       console.error('Erreur import :', err);
       showToast(`Erreur : ${file.name}`);
     }
   }
-  await renderGrid();
+  if (!user) await renderGrid();
   showToast(`${done} document${done > 1 ? 's' : ''} importé${done > 1 ? 's' : ''}`);
 }
 
@@ -694,6 +699,7 @@ function refreshHealthBadge() {
 async function processWithAnalysis(entries) {
   let saved     = 0;
   let hasMedical = false;
+  const user = getUser();
 
   for (const { file, category } of entries) {
     const result = await runAnalysisModal(file, category);
@@ -701,7 +707,11 @@ async function processWithAnalysis(entries) {
       try {
         /* Passe la date extraite par l'IA (DD/MM/YYYY) pour l'afficher sur la carte */
         const docDate = result.adminAnalysis?.date ?? null;
-        await addDocument(file, result.category, result.name, docDate);
+        if (user) {
+          await addDocumentSync(user.uid, file, result.category, result.name, docDate);
+        } else {
+          await addDocument(file, result.category, result.name, docDate);
+        }
         saved++;
 
         if (result.category === 'Santé') {
@@ -716,7 +726,7 @@ async function processWithAnalysis(entries) {
     }
   }
 
-  await renderGrid();
+  if (!user) await renderGrid();
 
   if (hasMedical) {
     /* Informer l'utilisateur et rediriger vers l'espace Santé */
@@ -1094,9 +1104,14 @@ editDocSave.addEventListener('click', async () => {
   if (!name) { editDocName.focus(); return; }
 
   try {
-    await updateDocument(editingDocId, { name, category, docDate });
+    const user = getUser();
+    if (user) {
+      await updateDocumentSync(user.uid, editingDocId, { name, category, docDate });
+    } else {
+      await updateDocument(editingDocId, { name, category, docDate });
+      await renderGrid();
+    }
     closeEditModal();
-    await renderGrid();
     showToast('Document mis à jour');
   } catch (err) {
     showToast('Erreur : ' + err.message);

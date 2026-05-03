@@ -51,6 +51,7 @@ function storagePath(uid, id, name) {
 export function subscribeDocuments(uid, onChange) {
   const q = query(docsRef(uid), orderBy('date_import', 'desc'));
   return onSnapshot(q, snap => {
+    console.log('Snapshot reçu :', snap.docs.length, 'documents');
     const docs = snap.docs.map(d => ({ firestoreId: d.id, ...d.data() }));
     onChange(docs);
   }, err => console.error('[Firestore] Documents :', err));
@@ -66,6 +67,7 @@ export async function addDocumentSync(uid, file, category, customName = null, do
   /* 1. Stocker localement en IndexedDB */
   const localMeta = await addLocalDoc(file, category, customName, docDate);
   const localId   = localMeta.id;
+  console.log('Document sauvegardé localement :', localMeta.name);
 
   try {
     /* 2. Upload binaire vers Firebase Storage */
@@ -74,6 +76,7 @@ export async function addDocumentSync(uid, file, category, customName = null, do
     const fileRef = storageRef(storage, path);
     await uploadBytes(fileRef, file);
     const downloadURL = await getDownloadURL(fileRef);
+    console.log('Document uploadé sur Storage :', downloadURL);
 
     /* 3. Créer l'entrée Firestore */
     const docData = {
@@ -88,6 +91,7 @@ export async function addDocumentSync(uid, file, category, customName = null, do
       download_url: downloadURL,
     };
     await setDoc(docRef(uid, String(localId)), docData);
+    console.log('Document sauvegardé sur Firestore :', String(localId));
 
     setSyncState('ok');
     return { ...localMeta, download_url: downloadURL, firestoreId: String(localId) };
