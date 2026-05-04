@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://neon-lokum-383f65.netlify.app", "http://localhost:8080", "http://192.168.1.23:8080"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Authorization", "Content-Length"]
+  }
+]

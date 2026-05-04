@@ -242,7 +242,7 @@ FORMAT DE RÉPONSE JSON OBLIGATOIRE :
 {
   "categorie": "Santé|Logement|Revenus|Impôts|Assurance|Téléphone|Énergie|Autres",
   "sous_categorie": "Ordonnance|Prise de sang|Facture|Fiche de paie|Quittance|Contrat|Autre",
-  "nom_suggere": "Type_Organisme_MMYYYY",
+  "nom_suggere": "Type Organisme MM YYYY",
   "organisme": "nom de l'organisme ou médecin",
   "date": "DD/MM/YYYY ou null",
   "montant": "X.XX€ ou null",
