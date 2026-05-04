@@ -18,7 +18,7 @@ import {
 } from './modules/firestore-sync.js';
 
 import { askStream, hasApiKey, clearHistory, analyzeAdminDocument, isAutoAnalyseEnabled } from './modules/assistant.js';
-import { getUrgentCount, computeReminder, addRappel } from './modules/medical.js';
+import { getUrgentCount, computeReminder, addRappel, getRappels } from './modules/medical.js';
 
 'use strict';
 
@@ -1085,6 +1085,35 @@ function renderCard(doc) {
        </div>`
     : `<span class="doc-meta">Importé le ${formatDate(doc.date)}</span>`;
 
+  /* Rappel associé à ce document (par nom de fichier) */
+  const rappel = getRappels().find(r => r.fileName === doc.name && !r.dismissed);
+  let reminderHtml = '';
+  if (rappel) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const rd    = new Date(rappel.rappelDate);
+    const diff  = Math.ceil((rd - today) / 86400000);
+    const dateFR = rd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const daysText = diff > 0 ? `dans ${diff} jour${diff > 1 ? 's' : ''}`
+                   : diff === 0 ? "aujourd'hui"
+                   : `il y a ${-diff} jour${-diff > 1 ? 's' : ''}`;
+
+    let urgencyClass = 'reminder-ok';
+    let urgencyBadge = '';
+    if (diff < 7) {
+      urgencyClass = 'reminder-urgent';
+      urgencyBadge = '<span class="reminder-badge">URGENT</span>';
+    } else if (diff < 30) {
+      urgencyClass = 'reminder-soon';
+    }
+
+    reminderHtml = `
+      <div class="doc-card-reminder ${urgencyClass}">
+        🔔
+        <div>${daysText} (${dateFR}) ${urgencyBadge}</div>
+      </div>`;
+  }
+
   return `
     <div class="doc-card" data-id="${doc.id}" style="--cat-color:${color}">
       <div class="doc-card-top">
@@ -1109,6 +1138,7 @@ function renderCard(doc) {
         </div>
         ${dateBlock}
       </div>
+      ${reminderHtml}
       <div class="doc-card-actions">
         <button class="doc-card-edit" title="Modifier">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
