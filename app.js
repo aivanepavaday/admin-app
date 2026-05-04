@@ -369,9 +369,14 @@ const docGrid      = document.getElementById('doc-grid');
 const docCount     = document.getElementById('doc-count');
 const navDocCount  = document.getElementById('nav-doc-count');
 const catFilter    = document.getElementById('cat-filter');
+const subcatFilter = document.getElementById('subcat-filter');
 
 /* Catégorie filtrée actuellement ('': tous) */
-let activeCat = '';
+let activeCat    = '';
+/* Sous-catégorie filtrée actuellement ('': toutes) */
+let activeSubCat = '';
+/* Cache de tous les documents (mis à jour par renderGrid / _renderGridFromFirestore) */
+let _allDocs     = [];
 
 /* ── Rendu des pills de catégorie (défaut + custom) ── */
 function renderCatFilter() {
@@ -422,8 +427,48 @@ catFilter.addEventListener('click', e => {
   if (!pill || e.target.closest('.cat-pill-delete')) return;
   catFilter.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
   pill.classList.add('active');
-  activeCat = pill.dataset.cat;
-  renderGrid();
+  activeCat    = pill.dataset.cat;
+  activeSubCat = '';
+  if (_firestoreDocs !== null) _renderGridFromFirestore(); else renderGrid();
+});
+
+/* ── Sous-catégories disponibles pour une catégorie ── */
+function _getSubCatsForCat(cat) {
+  return [...new Set(
+    _allDocs.filter(d => d.category === cat && d.sous_categorie)
+            .map(d => d.sous_categorie)
+  )].sort();
+}
+
+/* ── Rendu du filtre par sous-catégorie ── */
+function renderSubCatFilter(cat) {
+  if (!cat) {
+    subcatFilter.classList.add('hidden');
+    subcatFilter.innerHTML = '';
+    return;
+  }
+  const subs = _getSubCatsForCat(cat);
+  if (subs.length === 0) {
+    subcatFilter.classList.add('hidden');
+    subcatFilter.innerHTML = '';
+    return;
+  }
+  const allPill = `<button class="subcat-pill${!activeSubCat ? ' active' : ''}" data-subcat="">Tous</button>`;
+  const subPills = subs.map(s =>
+    `<button class="subcat-pill${activeSubCat === s ? ' active' : ''}" data-subcat="${escHtml(s)}">${escHtml(s)}</button>`
+  ).join('');
+  subcatFilter.innerHTML = allPill + subPills;
+  subcatFilter.classList.remove('hidden');
+}
+
+/* ── Filtre par sous-catégorie ── */
+subcatFilter.addEventListener('click', e => {
+  const pill = e.target.closest('.subcat-pill');
+  if (!pill) return;
+  subcatFilter.querySelectorAll('.subcat-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeSubCat = pill.dataset.subcat;
+  if (_firestoreDocs !== null) _renderGridFromFirestore(); else renderGrid();
 });
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -706,11 +751,12 @@ async function processWithAnalysis(entries) {
     if (result) {
       try {
         /* Passe la date extraite par l'IA (DD/MM/YYYY) pour l'afficher sur la carte */
-        const docDate = result.adminAnalysis?.date ?? null;
+        const docDate        = result.adminAnalysis?.date ?? null;
+        const sous_categorie = result.sous_categorie ?? null;
         if (user) {
-          await addDocumentSync(user.uid, file, result.category, result.name, docDate);
+          await addDocumentSync(user.uid, file, result.category, result.name, docDate, sous_categorie);
         } else {
-          await addDocument(file, result.category, result.name, docDate);
+          await addDocument(file, result.category, result.name, docDate, sous_categorie);
         }
         saved++;
 
@@ -742,15 +788,19 @@ async function processWithAnalysis(entries) {
    MODALE D'ANALYSE IA
    ═══════════════════════════════════════════════════════════════════ */
 
-const analyseModal  = document.getElementById('analyse-modal');
-const amLoadingEl   = document.getElementById('am-loading');
-const amResultEl    = document.getElementById('am-result');
-const amErrorEl     = document.getElementById('am-error');
-const amLoadingName = document.getElementById('am-loading-name');
-const amNameInput   = document.getElementById('am-name-input');
-const amCatSelect   = document.getElementById('am-cat-select');
-const amExtras      = document.getElementById('am-extras');
-const amErrorMsg    = document.getElementById('am-error-msg');
+const analyseModal   = document.getElementById('analyse-modal');
+const amLoadingEl    = document.getElementById('am-loading');
+const amResultEl     = document.getElementById('am-result');
+const amErrorEl      = document.getElementById('am-error');
+const amLoadingName  = document.getElementById('am-loading-name');
+const amNameInput    = document.getElementById('am-name-input');
+const amCatSelect    = document.getElementById('am-cat-select');
+const amSubCatInput  = document.getElementById('am-subcat-input');
+const amSubCatList   = document.getElementById('am-subcat-list');
+const amExtras       = document.getElementById('am-extras');
+const amErrorMsg     = document.getElementById('am-error-msg');
+const editDocSubCat  = document.getElementById('edit-doc-subcat');
+const editSubCatList = document.getElementById('edit-subcat-list');
 
 function amShowState(state) {
   amLoadingEl.classList.toggle('hidden', state !== 'loading');
@@ -858,13 +908,22 @@ function runAnalysisModal(file, fallbackCategory) {
 
         /* Remplir les champs éditables */
         document.getElementById('am-result-origname').textContent = file.name;
-        amNameInput.value = analysis.nom_suggere;
+        amNameInput.value    = analysis.nom_suggere;
+        amSubCatInput.value  = '';
 
         /* Remplir le select catégorie */
         const allCats = getAllCategories();
         amCatSelect.innerHTML = allCats.map(c =>
           `<option value="${escHtml(c)}" ${c === mappedCat ? 'selected' : ''}>${escHtml(c)}</option>`
         ).join('');
+
+        /* Datalist sous-catégorie — sous-cats existantes pour la catégorie sélectionnée */
+        function _refreshAmSubCatList() {
+          const subs = _getSubCatsForCat(amCatSelect.value);
+          amSubCatList.innerHTML = subs.map(s => `<option value="${escHtml(s)}">`).join('');
+        }
+        _refreshAmSubCatList();
+        amCatSelect.addEventListener('change', _refreshAmSubCatList, { signal: ac.signal });
 
         /* Infos complémentaires */
         amExtras.innerHTML = [
@@ -885,14 +944,15 @@ function runAnalysisModal(file, fallbackCategory) {
 
         /* Bouton Confirmer — passe l'analyse complète pour réutilisation (rappels) */
         confBtn.addEventListener('click', () => {
-          const finalName = amNameInput.value.trim() || analysis.nom_suggere;
-          const finalCat  = amCatSelect.value;
+          const finalName      = amNameInput.value.trim() || analysis.nom_suggere;
+          const finalCat       = amCatSelect.value;
+          const sous_categorie = amSubCatInput.value.trim() || null;
           /* Conserver l'extension originale si le nom suggéré n'en a pas */
           const ext  = fileExtDot(file.name);
           const name = finalName.includes('.') ? finalName : finalName + ext;
-          console.log(`[Modal] Confirmation — nom: "${name}", catégorie: "${finalCat}"`);
+          console.log(`[Modal] Confirmation — nom: "${name}", catégorie: "${finalCat}", sous-cat: "${sous_categorie}"`);
           closeModal();
-          resolve({ name, category: finalCat, adminAnalysis: analysis });
+          resolve({ name, category: finalCat, sous_categorie, adminAnalysis: analysis });
         }, sig);
       })
       .catch(err => {
@@ -921,6 +981,9 @@ function runAnalysisModal(file, fallbackCategory) {
 async function renderGrid() {
   let docs = await getAllDocuments();
 
+  /* Mise à jour du cache global (pour les filtres sous-catégorie) */
+  _allDocs = docs;
+
   /* Mise à jour des compteurs */
   const total = docs.length;
   docCount.textContent    = total;
@@ -929,7 +992,11 @@ async function renderGrid() {
   navDocCount.classList.toggle('hidden', total === 0);
 
   /* Filtrage par catégorie active */
-  if (activeCat) docs = docs.filter(d => d.category === activeCat);
+  if (activeCat)    docs = docs.filter(d => d.category === activeCat);
+  if (activeSubCat) docs = docs.filter(d => d.sous_categorie === activeSubCat);
+
+  /* Mise à jour du filtre sous-catégorie */
+  renderSubCatFilter(activeCat);
 
   /* État vide */
   if (docs.length === 0) {
@@ -1031,12 +1098,15 @@ function renderCard(doc) {
       </div>
       <div class="doc-card-name" title="${escHtml(doc.name)}">${escHtml(doc.name)}</div>
       <div class="doc-card-footer">
-        <span
-          class="cat-badge"
-          data-cat="${escHtml(doc.category)}"
-          title="Cliquer pour changer de catégorie"
-          style="background:${badgeBg};color:${color};border:1px solid ${badgeBdr}"
-        >${escHtml(doc.category)}</span>
+        <div class="doc-card-badges">
+          <span
+            class="cat-badge"
+            data-cat="${escHtml(doc.category)}"
+            title="Cliquer pour changer de catégorie"
+            style="background:${badgeBg};color:${color};border:1px solid ${badgeBdr}"
+          >${escHtml(doc.category)}</span>${doc.sous_categorie ? `
+          <span class="subcat-badge">${escHtml(doc.sous_categorie)}</span>` : ''}
+        </div>
         ${dateBlock}
       </div>
       <div class="doc-card-actions">
@@ -1071,9 +1141,10 @@ const editDocClose  = document.getElementById('edit-doc-close');
 let editingDocId = null;
 
 function openEditModal(doc) {
-  editingDocId      = doc.id;
-  editDocName.value = doc.name;
-  editDocDate.value = doc.docDate || '';
+  editingDocId         = doc.id;
+  editDocName.value    = doc.name;
+  editDocDate.value    = doc.docDate || '';
+  editDocSubCat.value  = doc.sous_categorie || '';
 
   /* Remplir le select avec toutes les catégories disponibles */
   const allCats = getAllCategories();
@@ -1081,11 +1152,25 @@ function openEditModal(doc) {
     `<option value="${escHtml(c)}" ${c === doc.category ? 'selected' : ''}>${escHtml(c)}</option>`
   ).join('');
 
+  /* Datalist sous-catégorie — se recharge quand la catégorie change */
+  const editAc = new AbortController();
+  function _refreshEditSubCatList() {
+    const subs = _getSubCatsForCat(editDocCat.value);
+    editSubCatList.innerHTML = subs.map(s => `<option value="${escHtml(s)}">`).join('');
+  }
+  _refreshEditSubCatList();
+  editDocCat.addEventListener('change', _refreshEditSubCatList, { signal: editAc.signal });
+
+  /* Nettoyer le listener quand la modale se ferme */
+  const _cleanEditAc = () => { editAc.abort(); editDocModal.removeEventListener('hide', _cleanEditAc); };
+  editDocModal.addEventListener('hide', _cleanEditAc, { once: true });
+
   editDocModal.classList.remove('hidden');
   setTimeout(() => editDocName.focus(), 60);
 }
 
 function closeEditModal() {
+  editDocModal.dispatchEvent(new Event('hide'));
   editDocModal.classList.add('hidden');
   editingDocId = null;
 }
@@ -1097,18 +1182,19 @@ editDocModal.addEventListener('click', e => {
 
 editDocSave.addEventListener('click', async () => {
   if (!editingDocId) return;
-  const name     = editDocName.value.trim();
-  const category = editDocCat.value;
-  const docDate  = editDocDate.value.trim() || null;
+  const name           = editDocName.value.trim();
+  const category       = editDocCat.value;
+  const docDate        = editDocDate.value.trim() || null;
+  const sous_categorie = editDocSubCat.value.trim() || null;
 
   if (!name) { editDocName.focus(); return; }
 
   try {
     const user = getUser();
     if (user) {
-      await updateDocumentSync(user.uid, editingDocId, { name, category, docDate });
+      await updateDocumentSync(user.uid, editingDocId, { name, category, docDate, sous_categorie });
     } else {
-      await updateDocument(editingDocId, { name, category, docDate });
+      await updateDocument(editingDocId, { name, category, docDate, sous_categorie });
       await renderGrid();
     }
     closeEditModal();
@@ -1198,6 +1284,9 @@ async function _onFirebaseUserReady(user) {
 function _renderGridFromFirestore() {
   if (_firestoreDocs === null) return;
 
+  /* Mise à jour du cache global (pour les filtres sous-catégorie) */
+  _allDocs = _firestoreDocs;
+
   const total = _firestoreDocs.length;
   docCount.textContent    = total;
   navDocCount.textContent = total;
@@ -1205,7 +1294,11 @@ function _renderGridFromFirestore() {
   navDocCount.classList.toggle('hidden', total === 0);
 
   let docs = _firestoreDocs;
-  if (activeCat) docs = docs.filter(d => d.category === activeCat);
+  if (activeCat)    docs = docs.filter(d => d.category === activeCat);
+  if (activeSubCat) docs = docs.filter(d => d.sous_categorie === activeSubCat);
+
+  /* Mise à jour du filtre sous-catégorie */
+  renderSubCatFilter(activeCat);
 
   if (docs.length === 0) {
     const emptyMsg  = activeCat ? `Aucun document dans la catégorie "${activeCat}"` : 'Aucun document importé';

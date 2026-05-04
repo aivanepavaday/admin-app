@@ -126,6 +126,9 @@
         </button>
       </div>
 
+      <!-- Filtres par sous-catégorie (injectés par app.js quand une catégorie est active) -->
+      <div class="subcat-filter hidden" id="subcat-filter"></div>
+
       <!-- Zone de dépôt + grille -->
       <div id="drop-zone" class="drop-zone">
         <!-- Overlay affiché pendant un glisser-déposer -->
@@ -243,6 +246,11 @@
             <span class="am-field-label">Catégorie</span>
             <select id="am-cat-select" class="am-field-select am-field-edit"></select>
           </div>
+          <div class="am-field">
+            <span class="am-field-label">Sous-catégorie <span class="am-field-optional">(optionnel)</span></span>
+            <input id="am-subcat-input" class="am-field-input am-field-edit" type="text" list="am-subcat-list" autocomplete="off" placeholder="ex : Ordonnance, Facture…" spellcheck="false" />
+            <datalist id="am-subcat-list"></datalist>
+          </div>
           <p id="am-confidence-warn" class="am-confidence-warn hidden">⚠ L'IA n'est pas sûre de cette classification, vérifiez bien les informations.</p>
           <p class="am-edit-hint">L'IA a analysé votre document. Vous pouvez modifier le nom et la catégorie avant de confirmer.</p>
           <div id="am-extras" class="am-extras"></div>
@@ -320,6 +328,11 @@
         <div class="edit-doc-field">
           <label class="edit-doc-label" for="edit-doc-date">Date du document</label>
           <input id="edit-doc-date" class="edit-doc-input" type="text" placeholder="JJ/MM/AAAA" autocomplete="off" />
+        </div>
+        <div class="edit-doc-field">
+          <label class="edit-doc-label" for="edit-doc-subcat">Sous-catégorie <span class="edit-doc-optional">(optionnel)</span></label>
+          <input id="edit-doc-subcat" class="edit-doc-input" type="text" list="edit-subcat-list" autocomplete="off" placeholder="ex : Ordonnance, Facture…" spellcheck="false" />
+          <datalist id="edit-subcat-list"></datalist>
         </div>
       </div>
       <div class="edit-doc-footer">

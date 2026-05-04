@@ -508,6 +508,38 @@ a.nav-btn { text-decoration: none; }
 }
 .add-folder-btn svg { width: 13px; height: 13px; }
 
+/* ── Filtres par sous-catégorie ── */
+.subcat-filter {
+  display: flex;
+  gap: 0.22rem;
+  flex-wrap: wrap;
+  margin-top: -0.8rem;
+  margin-bottom: 1rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+  flex-shrink: 0;
+}
+.subcat-filter.hidden { display: none; }
+
+.subcat-pill {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.72rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.subcat-pill:hover  { color: var(--text); border-color: var(--border-hi); }
+.subcat-pill.active {
+  color: var(--text);
+  background: rgba(255,255,255,0.08);
+  border-color: var(--border-hi);
+}
+
 /* ── Pills de dossiers personnalisés ── */
 .cat-pill.custom {
   display: inline-flex;
@@ -878,6 +910,14 @@ a.nav-btn { text-decoration: none; }
   margin-top: auto;
 }
 
+/* Conteneur des badges catégorie + sous-catégorie */
+.doc-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
 /* Badge catégorie */
 .cat-badge {
   font-size: 0.68rem;
@@ -889,6 +929,18 @@ a.nav-btn { text-decoration: none; }
   transition: opacity 0.15s;
 }
 .cat-badge:hover { opacity: 0.75; }
+
+/* Badge sous-catégorie (fond neutre, texte gris clair) */
+.subcat-badge {
+  font-size: 0.63rem;
+  font-weight: 500;
+  padding: 0.18em 0.5em;
+  border-radius: 99px;
+  background: #2a2a2a;
+  color: #888;
+  border: 1px solid #3a3a3a;
+  white-space: nowrap;
+}
 
 .doc-meta {
   font-size: 0.7rem;
@@ -1203,6 +1255,12 @@ a.nav-btn { text-decoration: none; }
   color: var(--muted);
   width: 90px;
   flex-shrink: 0;
+}
+.am-field-optional,
+.edit-doc-optional {
+  font-size: 0.68rem;
+  opacity: 0.55;
+  font-weight: 400;
 }
 .am-field-value {
   font-size: 0.82rem;

@@ -135,25 +135,27 @@ export function initDB() {
 /* ── Ajoute un document ──────────────────────────────────────────── */
 /* Lit le fichier comme ArrayBuffer et le persiste dans IndexedDB    */
 /* docDate : date extraite par l'IA (chaîne DD/MM/YYYY), null sinon */
-export function addDocument(file, category = 'Autres', customName = null, docDate = null) {
+export function addDocument(file, category = 'Autres', customName = null, docDate = null, sous_categorie = null) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     reader.onload = async e => {
       try {
         const doc = {
-          name:     customName || file.name,
-          size:     file.size,
-          mimeType: file.type,
+          name:          customName || file.name,
+          size:          file.size,
+          mimeType:      file.type,
           category,
-          date:     Date.now(),
-          docDate,  // date du document extraite par l'IA (DD/MM/YYYY)
-          data:     e.target.result, // ArrayBuffer — binaire complet
+          date:          Date.now(),
+          docDate,       // date du document extraite par l'IA (DD/MM/YYYY)
+          sous_categorie,
+          data:          e.target.result, // ArrayBuffer — binaire complet
         };
         const id = await _writeDoc(doc);
         /* On retourne les métadonnées sans le binaire pour économiser la RAM */
         resolve({ id, name: doc.name, size: doc.size, mimeType: doc.mimeType,
-                  category: doc.category, date: doc.date, docDate: doc.docDate });
+                  category: doc.category, date: doc.date, docDate: doc.docDate,
+                  sous_categorie: doc.sous_categorie });
       } catch (err) { reject(err); }
     };
 
@@ -219,7 +221,7 @@ export function updateCategory(id, category) {
 }
 
 /* ── Met à jour le nom, la catégorie et la date d'un document ────── */
-export function updateDocument(id, { name, category, docDate }) {
+export function updateDocument(id, { name, category, docDate, sous_categorie }) {
   return new Promise((resolve, reject) => {
     const tx     = db.transaction(STORE_NAME, 'readwrite');
     const store  = tx.objectStore(STORE_NAME);
@@ -227,9 +229,10 @@ export function updateDocument(id, { name, category, docDate }) {
     getReq.onsuccess = () => {
       const doc = getReq.result;
       if (!doc) { reject(new Error('Document introuvable')); return; }
-      if (name     !== undefined) doc.name     = name;
-      if (category !== undefined) doc.category = category;
-      if (docDate  !== undefined) doc.docDate  = docDate;
+      if (name           !== undefined) doc.name           = name;
+      if (category       !== undefined) doc.category       = category;
+      if (docDate        !== undefined) doc.docDate        = docDate;
+      if (sous_categorie !== undefined) doc.sous_categorie = sous_categorie;
       const putReq = store.put(doc);
       putReq.onsuccess = () => resolve();
       putReq.onerror   = () => reject(putReq.error);

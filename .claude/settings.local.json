@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npx serve:*)",
       "Bash(npm install *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(node --input-type=module)",
+      "Bash(node --check app.js)",
+      "Bash(node --check modules/documents.js)",
+      "Bash(node --check modules/firestore-sync.js)"
     ]
   }
 }

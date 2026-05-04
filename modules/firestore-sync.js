@@ -61,11 +61,11 @@ export function subscribeDocuments(uid, onChange) {
  * Ajoute un document : upload Storage → Firestore → IndexedDB local.
  * Retourne les métadonnées Firestore enrichies.
  */
-export async function addDocumentSync(uid, file, category, customName = null, docDate = null) {
+export async function addDocumentSync(uid, file, category, customName = null, docDate = null, sous_categorie = null) {
   setSyncState('syncing');
 
   /* 1. Stocker localement en IndexedDB */
-  const localMeta = await addLocalDoc(file, category, customName, docDate);
+  const localMeta = await addLocalDoc(file, category, customName, docDate, sous_categorie);
   const localId   = localMeta.id;
   console.log('Document sauvegardé localement :', localMeta.name);
 
@@ -80,15 +80,16 @@ export async function addDocumentSync(uid, file, category, customName = null, do
 
     /* 3. Créer l'entrée Firestore */
     const docData = {
-      id:           localId,          // référence IndexedDB locale
+      id:             localId,          // référence IndexedDB locale
       name,
       category,
-      docDate:      docDate ?? null,
-      date_import:  serverTimestamp(),
-      mimeType:     file.type,
-      size:         file.size,
-      storage_path: path,
-      download_url: downloadURL,
+      docDate:        docDate ?? null,
+      sous_categorie: sous_categorie ?? null,
+      date_import:    serverTimestamp(),
+      mimeType:       file.type,
+      size:           file.size,
+      storage_path:   path,
+      download_url:   downloadURL,
     };
     await setDoc(docRef(uid, String(localId)), docData);
     console.log('Document sauvegardé sur Firestore :', String(localId));
@@ -134,9 +135,10 @@ export async function updateDocumentSync(uid, localId, patch) {
   setSyncState('syncing');
   try {
     await updateDoc(docRef(uid, String(localId)), {
-      ...(patch.name     !== undefined && { name:    patch.name }),
-      ...(patch.category !== undefined && { category: patch.category }),
-      ...(patch.docDate  !== undefined && { docDate:  patch.docDate }),
+      ...(patch.name           !== undefined && { name:           patch.name }),
+      ...(patch.category       !== undefined && { category:       patch.category }),
+      ...(patch.docDate        !== undefined && { docDate:        patch.docDate }),
+      ...(patch.sous_categorie !== undefined && { sous_categorie: patch.sous_categorie }),
     });
     setSyncState('ok');
   } catch (err) {
