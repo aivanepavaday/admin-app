@@ -27,7 +27,8 @@ Structure exacte attendue :
   "date_document": "YYYY-MM-DD" | null,
   "qsp_jours": <entier> | null,
   "delai_prelevement_mois": <entier> | null,
-  "medicaments": ["nom1", "nom2"]
+  "medicaments": ["nom1", "nom2"],
+  "details": { ... } | null
 }
 
 Règles :
@@ -37,7 +38,11 @@ Règles :
 - date_document : date de rédaction/émission du document au format YYYY-MM-DD, null si absente
 - qsp_jours : la durée totale de la prescription en jours (ex: QSP 30 jours = 30, QSP 3 mois = 90), null si absent
 - delai_prelevement_mois : si le document indique "réaliser dans X mois" ou équivalent, extraire X, sinon null
-- medicaments : noms des médicaments (sans dosage), tableau vide si aucun`;
+- medicaments : noms des médicaments (sans dosage), tableau vide si aucun
+- details : champs spécifiques selon le type, omets les champs absents :
+  ordonnance     → { "medecin": "Dr ...", "etablissement": "...", "date_prescription": "DD/MM/YYYY", "qsp": "X jours", "date_expiration": "DD/MM/YYYY" }
+  prise_de_sang  → { "medecin": "Dr ...", "laboratoire": "...", "type_analyse": "...", "date_a_realiser": "DD/MM/YYYY" }
+  autre          → null`;
 
 /* ═══════════════════════════════════════════════════════════════════
    ANALYSE CLAUDE — IMAGE (vision)
@@ -180,6 +185,8 @@ export function parseAnalysisResult(raw) {
     qsp_jours:               typeof parsed.qsp_jours === 'number' ? parsed.qsp_jours : null,
     delai_prelevement_mois:  typeof parsed.delai_prelevement_mois === 'number' ? parsed.delai_prelevement_mois : null,
     medicaments:             Array.isArray(parsed.medicaments) ? parsed.medicaments : [],
+    details:                 (parsed.details && typeof parsed.details === 'object' && !Array.isArray(parsed.details))
+                               ? parsed.details : null,
   };
 }
 

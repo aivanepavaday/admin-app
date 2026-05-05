@@ -61,11 +61,11 @@ export function subscribeDocuments(uid, onChange) {
  * Ajoute un document : upload Storage → Firestore → IndexedDB local.
  * Retourne les métadonnées Firestore enrichies.
  */
-export async function addDocumentSync(uid, file, category, customName = null, docDate = null, sous_categorie = null) {
+export async function addDocumentSync(uid, file, category, customName = null, docDate = null, sous_categorie = null, thumbnail = null, details = null) {
   setSyncState('syncing');
 
   /* 1. Stocker localement en IndexedDB */
-  const localMeta = await addLocalDoc(file, category, customName, docDate, sous_categorie);
+  const localMeta = await addLocalDoc(file, category, customName, docDate, sous_categorie, thumbnail, details);
   const localId   = localMeta.id;
   console.log('Document sauvegardé localement :', localMeta.name);
 
@@ -80,16 +80,18 @@ export async function addDocumentSync(uid, file, category, customName = null, do
 
     /* 3. Créer l'entrée Firestore */
     const docData = {
-      id:             localId,          // référence IndexedDB locale
+      id:             localId,
       name,
       category,
       docDate:        docDate ?? null,
       sous_categorie: sous_categorie ?? null,
+      details:        details ?? null,
       date_import:    serverTimestamp(),
       mimeType:       file.type,
       size:           file.size,
       storage_path:   path,
       download_url:   downloadURL,
+      /* thumbnail non stocké dans Firestore (taille) — reste local IndexedDB uniquement */
     };
     await setDoc(docRef(uid, String(localId)), docData);
     console.log('Document sauvegardé sur Firestore :', String(localId));
@@ -139,6 +141,7 @@ export async function updateDocumentSync(uid, localId, patch) {
       ...(patch.category       !== undefined && { category:       patch.category }),
       ...(patch.docDate        !== undefined && { docDate:        patch.docDate }),
       ...(patch.sous_categorie !== undefined && { sous_categorie: patch.sous_categorie }),
+      ...(patch.details        !== undefined && { details:        patch.details }),
     });
     setSyncState('ok');
   } catch (err) {

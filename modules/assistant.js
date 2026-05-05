@@ -231,24 +231,34 @@ EXTRACTION MÉDICALE (si catégorie = "Santé") :
 - delai_prelevement_mois : délai indiqué pour réaliser le prélèvement, sinon null
 
 AUTRES CATÉGORIES :
-- "Logement" : quittance, loyer, bail, locataire, bailleur
-- "Revenus" : bulletin de salaire, salaire brut, cotisations sociales, fiche de paie
-- "Impôts" : Direction Générale des Finances Publiques, revenu fiscal, avis d'imposition
+- "Logement" : quittance, loyer, bail, locataire, bailleur → sous_categorie = "Quittance"
+- "Revenus" : bulletin de salaire, salaire brut, cotisations sociales → sous_categorie = "Fiche de paie"
+- "Impôts" : Direction Générale des Finances Publiques, revenu fiscal, avis d'imposition → sous_categorie = "Avis d'imposition"
 - "Assurance" : contrat d'assurance, mutuelle, garantie, prévoyance
-- "Téléphone" : facture opérateur mobile (SFR, Free, Orange, Bouygues…)
-- "Énergie" : facture EDF, Engie, gaz, électricité, eau
+- "Téléphone" : facture opérateur mobile (SFR, Free, Orange, Bouygues…) → sous_categorie = "Facture"
+- "Énergie" : facture EDF, Engie, gaz, électricité, eau → sous_categorie = "Facture"
+
+EXTRACTION DES DÉTAILS (champ "details") — extrais uniquement les champs présents :
+- Ordonnance     : medecin, etablissement, date_prescription (DD/MM/YYYY), qsp (ex: "30 jours"), date_expiration (DD/MM/YYYY)
+- Prise de sang  : medecin, laboratoire, type_analyse, date_a_realiser (DD/MM/YYYY)
+- Facture        : organisme, numero_ligne, montant_ttc (ex: "42,50 €"), date_emission (DD/MM/YYYY), date_echeance (DD/MM/YYYY)
+- Fiche de paie  : employeur, periode (ex: "Mars 2025"), salaire_brut, salaire_net, heures_travaillees
+- Quittance      : bailleur, locataire, montant, periode
+- Avis d'imposition : annee, revenu_fiscal, nombre_parts, montant_impot
+Omets les champs absents du document. Mets null si aucun détail ne s'applique.
 
 FORMAT DE RÉPONSE JSON OBLIGATOIRE :
 {
   "categorie": "Santé|Logement|Revenus|Impôts|Assurance|Téléphone|Énergie|Autres",
-  "sous_categorie": "Ordonnance|Prise de sang|Facture|Fiche de paie|Quittance|Contrat|Autre",
+  "sous_categorie": "Ordonnance|Prise de sang|Facture|Fiche de paie|Quittance|Avis d'imposition|Autre",
   "nom_suggere": "Type Organisme MM YYYY",
   "organisme": "nom de l'organisme ou médecin",
   "date": "DD/MM/YYYY ou null",
   "montant": "X.XX€ ou null",
   "qsp_jours": nombre entier ou null,
   "delai_prelevement_mois": nombre entier ou null,
-  "confiance": "haute|moyenne|faible"
+  "confiance": "haute|moyenne|faible",
+  "details": { "champ1": "valeur1" } ou null
 }`;
 
 /**
@@ -310,7 +320,7 @@ export async function analyzeAdminDocument(file) {
     headers: makeHeaders(key),
     body: JSON.stringify({
       model:      MODEL,
-      max_tokens: 512,
+      max_tokens: 1024,
       messages: [{
         role: 'user',
         content: [
@@ -351,6 +361,8 @@ export async function analyzeAdminDocument(file) {
     qsp_jours:               typeof parsed.qsp_jours === 'number'              ? parsed.qsp_jours              : null,
     delai_prelevement_mois:  typeof parsed.delai_prelevement_mois === 'number' ? parsed.delai_prelevement_mois : null,
     confiance:               ['haute','moyenne','faible'].includes(parsed.confiance) ? parsed.confiance : 'moyenne',
+    details:                 (parsed.details && typeof parsed.details === 'object' && !Array.isArray(parsed.details))
+                               ? parsed.details : null,
   };
 
   console.log('[Analyse] Résultat final :', result);

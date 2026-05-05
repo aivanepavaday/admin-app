@@ -19,12 +19,16 @@ import {
 
 import { askStream, hasApiKey, clearHistory, analyzeAdminDocument, isAutoAnalyseEnabled } from './modules/assistant.js';
 import { getUrgentCount, computeReminder, addRappel, getRappels } from './modules/medical.js';
+import { renderDocCard, detectTemplateKey, getTemplate, renderDetailFields } from './modules/document-templates.js';
 
 'use strict';
 
 /* ── DOM refs globaux ───────────────────────────────────────────── */
 const toast    = document.getElementById('toast');
 const navBtns  = document.querySelectorAll('.nav-btn');
+
+/* ── IDs des cartes actuellement dépliées (persist entre re-renders) ── */
+const expandedCards = new Set();
 
 /* ── Utilitaire toast ────────────────────────────────────────────── */
 let toastTimer;
@@ -666,16 +670,56 @@ importConfirmBtn.addEventListener('click', async () => {
   }
 });
 
+/* Génère une miniature base64 (max 220×300 px) pour l'aperçu des cartes */
+async function generateThumbnail(file) {
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const canvas = document.createElement('canvas');
+    const ctx    = canvas.getContext('2d');
+    const MAX_W  = 220;
+    const MAX_H  = 300;
+
+    if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+      const url = URL.createObjectURL(file);
+      const img = await new Promise((res, rej) => {
+        const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url;
+      });
+      URL.revokeObjectURL(url);
+      const ratio  = Math.min(MAX_W / img.width, MAX_H / img.height, 1);
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    } else if (ext === 'pdf') {
+      if (!window.pdfjsLib) return null;
+      const buf      = await file.arrayBuffer();
+      const pdfDoc   = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const page     = await pdfDoc.getPage(1);
+      const native   = page.getViewport({ scale: 1 });
+      const scale    = Math.min(MAX_W / native.width, MAX_H / native.height);
+      const viewport = page.getViewport({ scale });
+      canvas.width   = Math.round(viewport.width);
+      canvas.height  = Math.round(viewport.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    } else {
+      return null;
+    }
+    return canvas.toDataURL('image/webp', 0.72);
+  } catch {
+    return null;
+  }
+}
+
 /* Import direct sans analyse */
 async function importDirect(entries) {
   let done = 0;
   const user = getUser();
   for (const { file, category } of entries) {
     try {
+      const thumbnail = await generateThumbnail(file);
       if (user) {
-        await addDocumentSync(user.uid, file, category);
+        await addDocumentSync(user.uid, file, category, null, null, null, thumbnail, null);
       } else {
-        await addDocument(file, category);
+        await addDocument(file, category, null, null, null, thumbnail, null);
       }
       done++;
     } catch (err) {
@@ -750,13 +794,14 @@ async function processWithAnalysis(entries) {
     const result = await runAnalysisModal(file, category);
     if (result) {
       try {
-        /* Passe la date extraite par l'IA (DD/MM/YYYY) pour l'afficher sur la carte */
         const docDate        = result.adminAnalysis?.date ?? null;
         const sous_categorie = result.sous_categorie ?? null;
+        const details        = result.adminAnalysis?.details ?? null;
+        const thumbnail      = await generateThumbnail(file);
         if (user) {
-          await addDocumentSync(user.uid, file, result.category, result.name, docDate, sous_categorie);
+          await addDocumentSync(user.uid, file, result.category, result.name, docDate, sous_categorie, thumbnail, details);
         } else {
-          await addDocument(file, result.category, result.name, docDate, sous_categorie);
+          await addDocument(file, result.category, result.name, docDate, sous_categorie, thumbnail, details);
         }
         saved++;
 
@@ -1021,133 +1066,62 @@ async function renderGrid() {
     return;
   }
 
-  /* Rendu des cartes */
-  docGrid.innerHTML = docs.map(doc => renderCard(doc)).join('');
+  /* Rendu des cartes via le système de templates */
+  docGrid.innerHTML = docs.map(doc => renderDocCard(doc, expandedCards)).join('');
 
-  /* Attacher les événements après insertion dans le DOM */
-  docGrid.querySelectorAll('.doc-card-remove').forEach(btn => {
-    btn.addEventListener('click', async e => {
+  /* Événements sur chaque carte */
+  docGrid.querySelectorAll('.doc-card').forEach(card => {
+    const id  = Number(card.dataset.id);
+    const doc = docs.find(d => d.id === id);
+    if (!doc) return;
+
+    /* Boutons Voir (carte fermée + carte ouverte) → ouvrir la visionneuse */
+    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); openViewer(doc); });
+    });
+
+    /* Badge catégorie → rotation de catégorie */
+    card.querySelector('.cat-badge')?.addEventListener('click', async e => {
       e.stopPropagation();
-      const id = Number(btn.closest('.doc-card').dataset.id);
+      await updateCategory(id, nextCategory(doc.category));
+      await renderGrid();
+    });
+
+    /* Bouton Modifier */
+    card.querySelector('.doc-card-edit')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openEditModal(doc);
+    });
+
+    /* Bouton Supprimer */
+    card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
+      e.stopPropagation();
       await deleteDocument(id);
+      expandedCards.delete(id);
       await renderGrid();
       showToast('Document supprimé');
     });
-  });
 
-  /* Clic sur le badge catégorie : changer la catégorie */
-  docGrid.querySelectorAll('.cat-badge').forEach(badge => {
-    badge.addEventListener('click', async e => {
-      e.stopPropagation();
-      const card  = badge.closest('.doc-card');
-      const id    = Number(card.dataset.id);
-      const cur   = badge.dataset.cat;
-      const next  = nextCategory(cur);
-      await updateCategory(id, next);
-      await renderGrid();
-    });
-  });
-
-  /* Bouton Modifier */
-  docGrid.querySelectorAll('.doc-card-edit').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const id  = Number(btn.closest('.doc-card').dataset.id);
-      const doc = docs.find(d => d.id === id);
-      if (doc) openEditModal(doc);
-    });
-  });
-
-  /* Clic sur la carte : ouvrir la visionneuse */
-  docGrid.querySelectorAll('.doc-card').forEach(card => {
+    /* Clic sur la carte → déplier / replier (hors boutons interactifs) */
     card.addEventListener('click', e => {
-      if (e.target.closest('.doc-card-remove') ||
-          e.target.closest('.cat-badge') ||
-          e.target.closest('.doc-card-edit')) return;
-      const id  = Number(card.dataset.id);
-      const doc = docs.find(d => d.id === id);
-      if (doc) openViewer(doc);
+      if (e.target.closest('.doc-view-btn') ||
+          e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.cat-badge')) return;
+
+      const toggle = card.querySelector('.doc-card-expand-toggle span');
+      if (expandedCards.has(id)) {
+        expandedCards.delete(id);
+        card.classList.remove('expanded');
+        if (toggle) toggle.textContent = 'Détails';
+      } else {
+        expandedCards.add(id);
+        card.classList.add('expanded');
+        if (toggle) toggle.textContent = 'Réduire';
+      }
     });
   });
-}
-
-/* Génère le HTML d'une carte */
-function renderCard(doc) {
-  const color = getCategoryColor(doc.category);
-  const badgeBg  = color + '1a';
-  const badgeBdr = color + '4d';
-
-  /* Date du document : date extraite par l'IA si dispo, sinon date d'import */
-  const dateBlock = doc.docDate
-    ? `<div class="doc-dates">
-         <span class="doc-date-primary">${escHtml(doc.docDate)}</span>
-         <span class="doc-meta-import">Importé le ${formatDate(doc.date)}</span>
-       </div>`
-    : `<span class="doc-meta">Importé le ${formatDate(doc.date)}</span>`;
-
-  /* Rappel associé à ce document (par nom de fichier) */
-  const rappel = getRappels().find(r => r.fileName === doc.name && !r.dismissed);
-  let reminderHtml = '';
-  if (rappel) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const rd    = new Date(rappel.rappelDate);
-    const diff  = Math.ceil((rd - today) / 86400000);
-    const dateFR = rd.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    const daysText = diff > 0 ? `dans ${diff} jour${diff > 1 ? 's' : ''}`
-                   : diff === 0 ? "aujourd'hui"
-                   : `il y a ${-diff} jour${-diff > 1 ? 's' : ''}`;
-
-    let urgencyClass = 'reminder-ok';
-    let urgencyBadge = '';
-    if (diff < 7) {
-      urgencyClass = 'reminder-urgent';
-      urgencyBadge = '<span class="reminder-badge">URGENT</span>';
-    } else if (diff < 30) {
-      urgencyClass = 'reminder-soon';
-    }
-
-    reminderHtml = `
-      <div class="doc-card-reminder ${urgencyClass}">
-        🔔
-        <div>${daysText} (${dateFR}) ${urgencyBadge}</div>
-      </div>`;
-  }
-
-  return `
-    <div class="doc-card" data-id="${doc.id}" style="--cat-color:${color}">
-      <div class="doc-card-top">
-        <span class="doc-ext">${escHtml(fileExt(doc.name))}</span>
-        <button class="doc-card-remove" title="Supprimer">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="doc-card-name" title="${escHtml(doc.name)}">${escHtml(doc.name)}</div>
-      <div class="doc-card-footer">
-        <div class="doc-card-badges">
-          <span
-            class="cat-badge"
-            data-cat="${escHtml(doc.category)}"
-            title="Cliquer pour changer de catégorie"
-            style="background:${badgeBg};color:${color};border:1px solid ${badgeBdr}"
-          >${escHtml(doc.category)}</span>${doc.sous_categorie ? `
-          <span class="subcat-badge">${escHtml(doc.sous_categorie)}</span>` : ''}
-        </div>
-        ${dateBlock}
-      </div>
-      ${reminderHtml}
-      <div class="doc-card-actions">
-        <button class="doc-card-edit" title="Modifier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-          </svg>
-        </button>
-      </div>
-    </div>`;
 }
 
 /* Passe à la catégorie suivante (rotation circulaire, toutes catégories incluses) */
@@ -1168,13 +1142,16 @@ const editDocDate   = document.getElementById('edit-doc-date');
 const editDocSave   = document.getElementById('edit-doc-save');
 const editDocClose  = document.getElementById('edit-doc-close');
 
-let editingDocId = null;
+let editingDocId      = null;
+let editingDocTplKey  = null;
 
 function openEditModal(doc) {
-  editingDocId         = doc.id;
-  editDocName.value    = doc.name;
-  editDocDate.value    = doc.docDate || '';
-  editDocSubCat.value  = doc.sous_categorie || '';
+  editingDocId     = doc.id;
+  editingDocTplKey = detectTemplateKey(doc);
+
+  editDocName.value   = doc.name;
+  editDocDate.value   = doc.docDate || '';
+  editDocSubCat.value = doc.sous_categorie || '';
 
   /* Remplir le select avec toutes les catégories disponibles */
   const allCats = getAllCategories();
@@ -1182,7 +1159,7 @@ function openEditModal(doc) {
     `<option value="${escHtml(c)}" ${c === doc.category ? 'selected' : ''}>${escHtml(c)}</option>`
   ).join('');
 
-  /* Datalist sous-catégorie — se recharge quand la catégorie change */
+  /* Datalist sous-catégorie */
   const editAc = new AbortController();
   function _refreshEditSubCatList() {
     const subs = _getSubCatsForCat(editDocCat.value);
@@ -1190,10 +1167,21 @@ function openEditModal(doc) {
   }
   _refreshEditSubCatList();
   editDocCat.addEventListener('change', _refreshEditSubCatList, { signal: editAc.signal });
-
-  /* Nettoyer le listener quand la modale se ferme */
   const _cleanEditAc = () => { editAc.abort(); editDocModal.removeEventListener('hide', _cleanEditAc); };
   editDocModal.addEventListener('hide', _cleanEditAc, { once: true });
+
+  /* Section détails template */
+  const detailsSection = document.getElementById('edit-doc-details-section');
+  if (detailsSection) {
+    const tpl = getTemplate(editingDocTplKey);
+    if (tpl) {
+      detailsSection.classList.remove('hidden');
+      detailsSection.innerHTML = renderDetailFields(editingDocTplKey, doc.details);
+    } else {
+      detailsSection.classList.add('hidden');
+      detailsSection.innerHTML = '';
+    }
+  }
 
   editDocModal.classList.remove('hidden');
   setTimeout(() => editDocName.focus(), 60);
@@ -1219,12 +1207,24 @@ editDocSave.addEventListener('click', async () => {
 
   if (!name) { editDocName.focus(); return; }
 
+  /* Collecte des champs template */
+  let details = null;
+  const detailInputs = document.querySelectorAll('.edit-detail-field');
+  if (detailInputs.length > 0) {
+    const obj = {};
+    detailInputs.forEach(input => {
+      const v = input.value.trim();
+      if (v) obj[input.dataset.key] = v;
+    });
+    if (Object.keys(obj).length > 0) details = obj;
+  }
+
   try {
     const user = getUser();
     if (user) {
-      await updateDocumentSync(user.uid, editingDocId, { name, category, docDate, sous_categorie });
+      await updateDocumentSync(user.uid, editingDocId, { name, category, docDate, sous_categorie, details });
     } else {
-      await updateDocument(editingDocId, { name, category, docDate, sous_categorie });
+      await updateDocument(editingDocId, { name, category, docDate, sous_categorie, details });
       await renderGrid();
     }
     closeEditModal();
@@ -1346,67 +1346,69 @@ function _renderGridFromFirestore() {
     return;
   }
 
-  docGrid.innerHTML = docs.map(doc => renderCard(doc)).join('');
+  docGrid.innerHTML = docs.map(doc => renderDocCard(doc, expandedCards)).join('');
   _attachCardEvents(docs);
 }
 
 /* Attache les événements sur les cartes (Firestore ou local) */
 function _attachCardEvents(docs) {
-  docGrid.querySelectorAll('.doc-card-remove').forEach(btn => {
-    btn.addEventListener('click', async e => {
+  docGrid.querySelectorAll('.doc-card').forEach(card => {
+    const id  = Number(card.dataset.id);
+    const doc = docs.find(d => d.id == id || d.firestoreId == id);
+    if (!doc) return;
+    const normalizedDoc = { ...doc, id: doc.id ?? Number(doc.firestoreId) };
+
+    /* Boutons Voir */
+    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (doc.download_url) _openViewerFromUrl(doc);
+        else openViewer(normalizedDoc);
+      });
+    });
+
+    /* Badge catégorie */
+    card.querySelector('.cat-badge')?.addEventListener('click', async e => {
       e.stopPropagation();
-      const id = Number(btn.closest('.doc-card').dataset.id);
+      const next = nextCategory(doc.category);
       const user = getUser();
-      if (user) {
-        await deleteDocumentSync(user.uid, id);
-      } else {
-        await deleteDocument(id);
-        await renderGrid();
-      }
+      if (user) await updateDocumentSync(user.uid, id, { category: next });
+      else { await updateCategory(id, next); await renderGrid(); }
+    });
+
+    /* Modifier */
+    card.querySelector('.doc-card-edit')?.addEventListener('click', e => {
+      e.stopPropagation();
+      openEditModal(normalizedDoc);
+    });
+
+    /* Supprimer */
+    card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
+      e.stopPropagation();
+      const user = getUser();
+      if (user) await deleteDocumentSync(user.uid, id);
+      else { await deleteDocument(id); await renderGrid(); }
+      expandedCards.delete(id);
       showToast('Document supprimé');
     });
-  });
 
-  docGrid.querySelectorAll('.cat-badge').forEach(badge => {
-    badge.addEventListener('click', async e => {
-      e.stopPropagation();
-      const card = badge.closest('.doc-card');
-      const id   = Number(card.dataset.id);
-      const cur  = badge.dataset.cat;
-      const next = nextCategory(cur);
-      const user = getUser();
-      if (user) {
-        await updateDocumentSync(user.uid, id, { category: next });
-      } else {
-        await updateCategory(id, next);
-        await renderGrid();
-      }
-    });
-  });
-
-  docGrid.querySelectorAll('.doc-card-edit').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const id  = Number(btn.closest('.doc-card').dataset.id);
-      const doc = docs.find(d => (d.id || d.firestoreId) == id || d.id == id);
-      if (doc) openEditModal({ ...doc, id: doc.id ?? Number(doc.firestoreId) });
-    });
-  });
-
-  docGrid.querySelectorAll('.doc-card').forEach(card => {
+    /* Clic carte → déplier / replier */
     card.addEventListener('click', e => {
-      if (e.target.closest('.doc-card-remove') ||
-          e.target.closest('.cat-badge') ||
-          e.target.closest('.doc-card-edit')) return;
-      const id  = Number(card.dataset.id);
-      const doc = docs.find(d => d.id == id || d.firestoreId == id);
-      if (doc) {
-        /* Si connecté et doc a une URL Storage, ouvrir depuis l'URL */
-        if (doc.download_url) {
-          _openViewerFromUrl(doc);
-        } else {
-          openViewer({ ...doc, id: doc.id ?? Number(doc.firestoreId) });
-        }
+      if (e.target.closest('.doc-view-btn') ||
+          e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.cat-badge')) return;
+
+      const toggle = card.querySelector('.doc-card-expand-toggle span');
+      if (expandedCards.has(id)) {
+        expandedCards.delete(id);
+        card.classList.remove('expanded');
+        if (toggle) toggle.textContent = 'Détails';
+      } else {
+        expandedCards.add(id);
+        card.classList.add('expanded');
+        if (toggle) toggle.textContent = 'Réduire';
       }
     });
   });

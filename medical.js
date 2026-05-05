@@ -7,6 +7,7 @@ import { initDB, addDocument, getAllDocuments, deleteDocument, getDocumentData, 
 import { analyzeDocument, computeReminder, addRappel, getRappels, deleteRappel, getUrgentCount } from './modules/medical.js';
 import { hasApiKey } from './modules/assistant.js';
 import { initAuth } from './modules/auth.js';
+import { renderDocCard, detectTemplateKey, getTemplate, renderDetailFields } from './modules/document-templates.js';
 
 'use strict';
 
@@ -35,10 +36,12 @@ function showToast(msg, duration = 3000) {
 
 /* ── État ── */
 let allDocs    = [];
-let currentCat = '';        /* '' = tous, 'ordonnance' | 'prise_de_sang' | 'autre' */
-let pendingFile = null;     /* fichier en cours d'analyse */
-let pendingAnalysis = null; /* résultat JSON de Claude */
+let currentCat = '';
+let pendingFile = null;
+let pendingAnalysis = null;
 let reminderAdded = false;
+
+const expandedMedicalIds = new Set();
 
 /* ═══════════════════════════════════════════════════════════════════
    BADGE RAPPELS
@@ -76,17 +79,10 @@ document.getElementById('cat-filter').addEventListener('click', e => {
 function renderGrid() {
   const grid = document.getElementById('doc-grid');
 
-  /* Filtrer par catégorie */
   let docs = allDocs.filter(d => MEDICAL_CATS.includes(d.category));
   if (currentCat) {
-    /* Mapper la valeur du filtre vers la catégorie stockée */
-    const catMap = {
-      ordonnance:    'Ordonnances',
-      prise_de_sang: 'Prises de sang',
-      autre:         'Santé',
-    };
-    const targetCat = catMap[currentCat];
-    docs = docs.filter(d => d.category === targetCat);
+    const catMap = { ordonnance: 'Ordonnances', prise_de_sang: 'Prises de sang', autre: 'Santé' };
+    docs = docs.filter(d => d.category === (catMap[currentCat] ?? currentCat));
   }
 
   if (docs.length === 0) {
@@ -104,134 +100,60 @@ function renderGrid() {
     return;
   }
 
-  /* Récupérer les rappels pour afficher l'indicateur */
-  const rappels = getRappels().filter(r => !r.dismissed);
+  grid.innerHTML = docs.map(doc => renderDocCard(doc, expandedMedicalIds)).join('');
 
-  grid.innerHTML = docs.map(doc => {
-    /* Déterminer le type à partir de la catégorie */
-    const typeKey = doc.category === 'Ordonnances' ? 'ordonnance'
-                  : doc.category === 'Prises de sang' ? 'prise_de_sang'
-                  : 'autre';
-    const meta  = TYPE_META[typeKey];
-    const color = meta.color;
+  grid.querySelectorAll('.doc-card').forEach(card => {
+    const id  = Number(card.dataset.id);
+    const doc = docs.find(d => d.id === id);
+    if (!doc) return;
 
-    /* Rappel associé ? */
-    const rappel = rappels.find(r => r.fileName === doc.name && !r.dismissed);
+    /* Boutons Voir */
+    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); openViewer(doc); });
+    });
 
-    /* Calcul du compte à rebours et classe d'urgence */
-    let reminderHtml = '';
-    if (rappel) {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const rd    = new Date(rappel.rappelDate);
-      const diff  = Math.ceil((rd - today) / 86400000);
-      const dateFR = rd.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
-
-      const daysText = diff > 0 ? `dans ${diff} jour${diff > 1 ? 's' : ''}`
-                     : diff === 0 ? "aujourd'hui"
-                     : `il y a ${-diff} jour${-diff > 1 ? 's' : ''}`;
-
-      let urgencyClass = 'reminder-ok';      /* >= 30 j : vert */
-      let urgencyBadge = '';
-      if (diff < 7) {
-        urgencyClass = 'reminder-urgent';    /* < 7 j : rouge */
-        urgencyBadge = '<span class="reminder-badge">URGENT</span>';
-      } else if (diff < 30) {
-        urgencyClass = 'reminder-soon';      /* < 30 j : orange */
-      }
-
-      reminderHtml = `
-        <div class="doc-card-reminder ${urgencyClass}">
-          🔔
-          <div>${daysText} (${dateFR}) ${urgencyBadge}</div>
-        </div>`;
-    }
-
-    const importDate = new Date(doc.date).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
-
-    /* Date du document extraite par l'IA, sinon date d'import */
-    const dateBlock = doc.docDate
-      ? `<div class="doc-card-meta">${esc(doc.docDate)}</div>
-         <div class="doc-card-import-date">Importé le ${importDate}</div>`
-      : `<div class="doc-card-meta">Importé le ${importDate}</div>`;
-
-    return `
-      <div class="doc-card" style="--card-color:${color}" data-id="${esc(doc.id)}">
-        <div class="doc-card-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-        </div>
-        <div class="doc-card-name" title="${esc(doc.name)}">${esc(doc.name)}</div>
-        ${dateBlock}
-        <span class="doc-card-type ${typeKey}">${meta.label}</span>
-        ${reminderHtml}
-        <div class="doc-card-actions">
-          <button class="doc-card-edit" data-id="${esc(doc.id)}" title="Modifier">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-          <button class="doc-card-delete" data-id="${esc(doc.id)}" title="Supprimer">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-            </svg>
-          </button>
-        </div>
-      </div>`;
-  }).join('');
-
-  /* Supprimer */
-  grid.querySelectorAll('.doc-card-delete').forEach(btn => {
-    btn.addEventListener('click', async e => {
+    /* Bouton Modifier */
+    card.querySelector('.doc-card-edit')?.addEventListener('click', e => {
       e.stopPropagation();
-      const id = Number(btn.dataset.id);
-      /* Récupérer la métadonnée avant suppression pour trouver le rappel associé */
-      const doc = allDocs.find(d => d.id === id);
+      openEditModal(doc);
+    });
 
+    /* Bouton Supprimer */
+    card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
+      e.stopPropagation();
       try {
         await deleteDocument(id);
-
-        /* Supprimer le rappel associé s'il existe */
-        if (doc) {
-          getRappels()
-            .filter(r => r.fileName === doc.name)
-            .forEach(r => deleteRappel(r.id));
-        }
-
-        /* Re-fetch depuis la DB pour garantir la cohérence du rendu */
+        getRappels()
+          .filter(r => r.fileName === doc.name)
+          .forEach(r => deleteRappel(r.id));
+        expandedMedicalIds.delete(id);
         allDocs = await getAllDocuments();
         renderGrid();
         updateRappelsBadge();
         showToast('Document supprimé');
       } catch (err) {
-        console.error('Erreur suppression :', err);
         showToast('Erreur lors de la suppression');
       }
     });
-  });
 
-  /* Bouton Modifier */
-  grid.querySelectorAll('.doc-card-edit').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const id  = Number(btn.dataset.id);
-      const doc = allDocs.find(d => d.id === id);
-      if (doc) openEditModal(doc);
-    });
-  });
-
-  /* Clic sur la carte : ouvrir la visionneuse */
-  grid.querySelectorAll('.doc-card').forEach(card => {
+    /* Clic sur la carte → déplier / replier */
     card.addEventListener('click', e => {
-      if (e.target.closest('.doc-card-delete') ||
-          e.target.closest('.doc-card-edit')) return;
-      const id  = Number(card.dataset.id);
-      const doc = allDocs.find(d => d.id === id);
-      if (doc) openViewer(doc);
+      if (e.target.closest('.doc-view-btn') ||
+          e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.cat-badge')) return;
+
+      const toggle = card.querySelector('.doc-card-expand-toggle span');
+      if (expandedMedicalIds.has(id)) {
+        expandedMedicalIds.delete(id);
+        card.classList.remove('expanded');
+        if (toggle) toggle.textContent = 'Détails';
+      } else {
+        expandedMedicalIds.add(id);
+        card.classList.add('expanded');
+        if (toggle) toggle.textContent = 'Réduire';
+      }
     });
   });
 }
@@ -378,7 +300,8 @@ document.getElementById('analysis-save-btn').addEventListener('click', async () 
     : null;
 
   try {
-    await addDocument(pendingFile, finalCat, finalName, docDate);
+    const details = pendingAnalysis?.details ?? null;
+    await addDocument(pendingFile, finalCat, finalName, docDate, null, null, details);
     allDocs = await getAllDocuments();
     renderGrid();
     showToast('Document enregistré dans Santé');
@@ -483,16 +406,29 @@ document.getElementById('viewer-modal').addEventListener('click', e => {
    MODALE DE MODIFICATION DE DOCUMENT
    ═══════════════════════════════════════════════════════════════════ */
 
-let editingDocId = null;
+let editingDocId     = null;
+let editingDocTplKey = null;
 
 function openEditModal(doc) {
-  editingDocId = doc.id;
+  editingDocId     = doc.id;
+  editingDocTplKey = detectTemplateKey(doc);
+
   document.getElementById('edit-doc-name').value = doc.name;
   document.getElementById('edit-doc-date').value = doc.docDate || '';
+  document.getElementById('edit-doc-cat').value  = doc.category;
 
-  /* Pré-sélectionner la catégorie actuelle */
-  const catSelect = document.getElementById('edit-doc-cat');
-  catSelect.value = doc.category;
+  /* Section détails template */
+  const detailsSection = document.getElementById('edit-doc-details-section');
+  if (detailsSection) {
+    const tpl = getTemplate(editingDocTplKey);
+    if (tpl) {
+      detailsSection.classList.remove('hidden');
+      detailsSection.innerHTML = renderDetailFields(editingDocTplKey, doc.details);
+    } else {
+      detailsSection.classList.add('hidden');
+      detailsSection.innerHTML = '';
+    }
+  }
 
   document.getElementById('edit-doc-modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('edit-doc-name').focus(), 60);
@@ -516,8 +452,20 @@ document.getElementById('edit-doc-save').addEventListener('click', async () => {
 
   if (!name) { document.getElementById('edit-doc-name').focus(); return; }
 
+  /* Collecte des champs template */
+  let details = null;
+  const detailInputs = document.querySelectorAll('.edit-detail-field');
+  if (detailInputs.length > 0) {
+    const obj = {};
+    detailInputs.forEach(input => {
+      const v = input.value.trim();
+      if (v) obj[input.dataset.key] = v;
+    });
+    if (Object.keys(obj).length > 0) details = obj;
+  }
+
   try {
-    await updateDocument(editingDocId, { name, category, docDate });
+    await updateDocument(editingDocId, { name, category, docDate, details });
     closeEditModal();
     allDocs = await getAllDocuments();
     renderGrid();
