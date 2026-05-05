@@ -571,3 +571,9 @@
   gap: 0.75rem;
 }
 .edit-doc-details-section.hidden { display: none; }
+
+/* ── Responsive mobile — cartes ── */
+@media (max-width: 768px) {
+  /* Hauteur adaptée au contenu (plus de minimum fixe) */
+  .doc-card-front { min-height: 0; }
+}
