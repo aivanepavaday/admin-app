@@ -134,6 +134,19 @@ export function renderDetailFields(templateKey, details) {
       </div>`).join('')}`;
 }
 
+/** Détecte le template en scorant le recouvrement entre les clés de details et chaque template. */
+function _detectTemplateFromDetails(details) {
+  const keys = Object.keys(details).filter(k => details[k] != null && String(details[k]).trim() !== '');
+  if (keys.length === 0) return null;
+  let bestKey = null, bestScore = 0;
+  for (const [tplKey, tpl] of Object.entries(DOCUMENT_TEMPLATES)) {
+    const tplKeys = new Set(tpl.champs.map(c => c.key));
+    const score = keys.filter(k => tplKeys.has(k)).length;
+    if (score > bestScore) { bestScore = score; bestKey = tplKey; }
+  }
+  return bestKey;
+}
+
 /**
  * Génère le HTML d'une carte document avec animation flip 3D.
  * @param {object} doc        — métadonnées (id, name, category, sous_categorie, docDate, date, details…)
@@ -182,11 +195,30 @@ export function renderDocCard(doc, expandedIds = new Set()) {
   }
 
   /* Verso : titre et détails */
-  const tpl      = tplKey ? DOCUMENT_TEMPLATES[tplKey] : null;
+  // Résoudre le template : depuis sous_categorie (SUBCAT_TO_KEY), puis depuis les clés de détails
+  let resolvedTplKey = tplKey;
+  if (!resolvedTplKey && doc.details && typeof doc.details === 'object') {
+    resolvedTplKey = _detectTemplateFromDetails(doc.details);
+  }
+
+  const detailKeys = doc.details
+    ? Object.keys(doc.details).filter(k => doc.details[k] != null && String(doc.details[k]).trim() !== '')
+    : [];
+
+  console.log(`[Verso] Document : ${doc.name}`);
+  console.log(`[Verso] Type détecté : ${resolvedTplKey ?? 'aucun'} (sous_categorie: ${doc.sous_categorie ?? 'non définie'})`);
+  console.log(`[Verso] Champs disponibles : ${detailKeys.length ? detailKeys.join(', ') : 'aucun'}`);
+
+  const tpl      = resolvedTplKey ? DOCUMENT_TEMPLATES[resolvedTplKey] : null;
   const backTitle = tpl ? tpl.label : doc.category;
-  const detailsInner = tplKey
-    ? renderDetailsHtml(tplKey, doc.details ?? null)
-    : `<p class="detail-empty">Importez via l'analyse IA pour extraire les détails.</p>`;
+  const detailsInner = resolvedTplKey
+    ? renderDetailsHtml(resolvedTplKey, doc.details)
+    : detailKeys.length > 0
+      ? detailKeys.map(k => `<div class="detail-row">
+          <span class="detail-label">${escHtml(k.replace(/_/g, ' '))}</span>
+          <span class="detail-value">${escHtml(String(doc.details[k]))}</span>
+        </div>`).join('')
+      : `<p class="detail-empty">Importez via l'analyse IA pour extraire les détails.</p>`;
 
   return `
     <div class="doc-card-wrap">
