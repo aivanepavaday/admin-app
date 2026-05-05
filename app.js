@@ -1075,25 +1075,29 @@ async function renderGrid() {
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
 
-    /* Boutons Voir (carte fermée + carte ouverte) → ouvrir la visionneuse */
-    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
-      btn.addEventListener('click', e => { e.stopPropagation(); openViewer(doc); });
+    /* Voir */
+    card.querySelector('.doc-view-btn-full')?.addEventListener('click', e => {
+      e.stopPropagation(); openViewer(doc);
     });
 
-    /* Badge catégorie → rotation de catégorie */
+    /* Badge catégorie → rotation */
     card.querySelector('.cat-badge')?.addEventListener('click', async e => {
       e.stopPropagation();
       await updateCategory(id, nextCategory(doc.category));
       await renderGrid();
     });
 
-    /* Bouton Modifier */
+    /* Modifier */
     card.querySelector('.doc-card-edit')?.addEventListener('click', e => {
-      e.stopPropagation();
-      openEditModal(doc);
+      e.stopPropagation(); openEditModal(doc);
     });
 
-    /* Bouton Supprimer */
+    /* Partager */
+    card.querySelector('.doc-share-btn')?.addEventListener('click', e => {
+      e.stopPropagation(); handleShare(doc);
+    });
+
+    /* Supprimer */
     card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
       e.stopPropagation();
       await deleteDocument(id);
@@ -1102,26 +1106,64 @@ async function renderGrid() {
       showToast('Document supprimé');
     });
 
-    /* Clic sur la carte → déplier / replier (hors boutons interactifs) */
-    card.addEventListener('click', e => {
-      if (e.target.closest('.doc-view-btn') ||
-          e.target.closest('.doc-view-btn-full') ||
-          e.target.closest('.doc-card-edit') ||
-          e.target.closest('.doc-card-remove') ||
-          e.target.closest('.cat-badge')) return;
+    /* Retour (verso → recto) */
+    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
+      e.stopPropagation();
+      card.classList.remove('is-flipped');
+      expandedCards.delete(id);
+    });
 
-      const toggle = card.querySelector('.doc-card-expand-toggle span');
-      if (expandedCards.has(id)) {
-        expandedCards.delete(id);
-        card.classList.remove('expanded');
-        if (toggle) toggle.textContent = 'Détails';
-      } else {
+    /* Clic sur le recto → flip verso */
+    card.addEventListener('click', e => {
+      if (e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-share-btn') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.doc-back-close') ||
+          e.target.closest('.cat-badge')) return;
+      if (!card.classList.contains('is-flipped')) {
+        card.classList.add('is-flipped');
         expandedCards.add(id);
-        card.classList.add('expanded');
-        if (toggle) toggle.textContent = 'Réduire';
       }
     });
   });
+}
+
+/* Partage d'un document (mobile : Web Share API, desktop : téléchargement) */
+async function handleShare(doc) {
+  try {
+    let blob;
+    if (doc.download_url) {
+      /* Document Firestore : partage de l'URL */
+      if (navigator.share) {
+        try { await navigator.share({ title: doc.name, url: doc.download_url }); showToast('Lien partagé'); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+      try { await navigator.clipboard.writeText(doc.download_url); showToast('Lien copié dans le presse-papiers'); }
+      catch { window.open(doc.download_url, '_blank'); }
+      return;
+    }
+    /* Document local : lire le binaire depuis IndexedDB */
+    const fullDoc = await getDocumentData(doc.id);
+    blob = new Blob([fullDoc.data], { type: fullDoc.mimeType });
+
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], doc.name, { type: fullDoc.mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ title: doc.name, files: [file] }); showToast('Document partagé'); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+    }
+    /* Fallback : téléchargement direct */
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = doc.name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Téléchargement démarré');
+  } catch {
+    showToast('Erreur lors du partage');
+  }
 }
 
 /* Passe à la catégorie suivante (rotation circulaire, toutes catégories incluses) */
@@ -1358,13 +1400,11 @@ function _attachCardEvents(docs) {
     if (!doc) return;
     const normalizedDoc = { ...doc, id: doc.id ?? Number(doc.firestoreId) };
 
-    /* Boutons Voir */
-    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        if (doc.download_url) _openViewerFromUrl(doc);
-        else openViewer(normalizedDoc);
-      });
+    /* Voir */
+    card.querySelector('.doc-view-btn-full')?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (doc.download_url) _openViewerFromUrl(doc);
+      else openViewer(normalizedDoc);
     });
 
     /* Badge catégorie */
@@ -1382,6 +1422,12 @@ function _attachCardEvents(docs) {
       openEditModal(normalizedDoc);
     });
 
+    /* Partager */
+    card.querySelector('.doc-share-btn')?.addEventListener('click', e => {
+      e.stopPropagation();
+      handleShare(normalizedDoc);
+    });
+
     /* Supprimer */
     card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
       e.stopPropagation();
@@ -1392,23 +1438,24 @@ function _attachCardEvents(docs) {
       showToast('Document supprimé');
     });
 
-    /* Clic carte → déplier / replier */
-    card.addEventListener('click', e => {
-      if (e.target.closest('.doc-view-btn') ||
-          e.target.closest('.doc-view-btn-full') ||
-          e.target.closest('.doc-card-edit') ||
-          e.target.closest('.doc-card-remove') ||
-          e.target.closest('.cat-badge')) return;
+    /* Retour (verso → recto) */
+    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
+      e.stopPropagation();
+      card.classList.remove('is-flipped');
+      expandedCards.delete(id);
+    });
 
-      const toggle = card.querySelector('.doc-card-expand-toggle span');
-      if (expandedCards.has(id)) {
-        expandedCards.delete(id);
-        card.classList.remove('expanded');
-        if (toggle) toggle.textContent = 'Détails';
-      } else {
+    /* Clic sur le recto → flip verso */
+    card.addEventListener('click', e => {
+      if (e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-share-btn') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.doc-back-close') ||
+          e.target.closest('.cat-badge')) return;
+      if (!card.classList.contains('is-flipped')) {
+        card.classList.add('is-flipped');
         expandedCards.add(id);
-        card.classList.add('expanded');
-        if (toggle) toggle.textContent = 'Réduire';
       }
     });
   });

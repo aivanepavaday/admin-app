@@ -135,14 +135,15 @@ export function renderDetailFields(templateKey, details) {
 }
 
 /**
- * Génère le HTML complet d'une carte document (fermée + dépliable).
- * @param {object} doc        — métadonnées (id, name, category, sous_categorie, docDate, date, thumbnail, details…)
- * @param {Set}    expandedIds — IDs des cartes actuellement dépliées
+ * Génère le HTML d'une carte document avec animation flip 3D.
+ * @param {object} doc        — métadonnées (id, name, category, sous_categorie, docDate, date, details…)
+ * @param {Set}    expandedIds — IDs des cartes actuellement retournées
  */
 export function renderDocCard(doc, expandedIds = new Set()) {
-  const color      = getCategoryColor(doc.category);
-  const isExpanded = expandedIds.has(doc.id);
-  const tplKey     = detectTemplateKey(doc);
+  const color     = getCategoryColor(doc.category);
+  const isFlipped = expandedIds.has(doc.id);
+  const tplKey    = detectTemplateKey(doc);
+  const ext       = fileExt(doc.name);
 
   /* Badges */
   const bg  = color + '1a';
@@ -154,16 +155,16 @@ export function renderDocCard(doc, expandedIds = new Set()) {
   const subcatBadge = doc.sous_categorie
     ? `<span class="subcat-badge">${escHtml(doc.sous_categorie)}</span>` : '';
 
-  /* Date */
+  /* Dates */
   const importDateStr = new Date(doc.date).toLocaleDateString('fr-FR', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
   const dateHtml = doc.docDate
-    ? `<div class="doc-card-date">${escHtml(doc.docDate)}</div>
-       <div class="doc-card-date doc-card-date--import">Importé le ${importDateStr}</div>`
-    : `<div class="doc-card-date doc-card-date--import">Importé le ${importDateStr}</div>`;
+    ? `<span class="doc-card-date">${escHtml(doc.docDate)}</span>
+       <span class="doc-card-date doc-card-date--import">Importé ${importDateStr}</span>`
+    : `<span class="doc-card-date doc-card-date--import">Importé ${importDateStr}</span>`;
 
-  /* Rappel */
+  /* Rappel actif */
   let reminderHtml = '';
   const rappel = getRappels().find(r => r.fileName === doc.name && !r.dismissed);
   if (rappel) {
@@ -180,32 +181,47 @@ export function renderDocCard(doc, expandedIds = new Set()) {
     reminderHtml = `<div class="doc-card-reminder ${cls}">🔔 <span>${daysText} (${dateFR}) ${badge}</span></div>`;
   }
 
-  /* Contenu de la section détails */
+  /* Verso : titre et détails */
+  const tpl      = tplKey ? DOCUMENT_TEMPLATES[tplKey] : null;
+  const backTitle = tpl ? tpl.label : doc.category;
   const detailsInner = tplKey
     ? renderDetailsHtml(tplKey, doc.details ?? null)
     : `<p class="detail-empty">Importez via l'analyse IA pour extraire les détails.</p>`;
 
-  const docIconSvg = `<svg class="doc-preview-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
-  const toggleText = isExpanded ? '▴ Réduire' : '▾ Cliquer pour déplier';
-
   return `
-    <div class="doc-card${isExpanded ? ' expanded' : ''}" data-id="${doc.id}" style="--cat-color:${color}">
-      <div class="doc-card-preview">
-        <span class="doc-ext-badge">${escHtml(fileExt(doc.name))}</span>
-        ${docIconSvg}
-      </div>
-      <div class="doc-card-info">
-        <div class="doc-card-name" title="${escHtml(doc.name)}">${escHtml(doc.name)}</div>
-        <div class="doc-card-badges">${catBadge}${subcatBadge}</div>
-        ${dateHtml}
-        ${reminderHtml}
-      </div>
-      <button class="doc-card-expand-toggle" type="button">${toggleText}</button>
-      <div class="doc-card-details">${detailsInner}</div>
-      <div class="doc-card-actions-expanded">
-        <button class="doc-view-btn-full" type="button">Voir</button>
-        <button class="doc-card-edit"     type="button">Modifier</button>
-        <button class="doc-card-remove"   type="button">Supprimer</button>
+    <div class="doc-card-wrap">
+      <div class="doc-card${isFlipped ? ' is-flipped' : ''}" data-id="${doc.id}" style="--cat-color:${color}">
+
+        <!-- RECTO -->
+        <div class="doc-card-front">
+          <div class="doc-card-front-top">
+            <span class="doc-ext-tag">
+              <span class="cat-dot" style="background:${color}"></span>
+              ${escHtml(ext)}
+            </span>
+          </div>
+          <div class="doc-card-name">${escHtml(doc.name)}</div>
+          <div class="doc-card-badges">${catBadge}${subcatBadge}</div>
+          <div class="doc-card-dates-wrap">${dateHtml}</div>
+          ${reminderHtml}
+          <div class="doc-card-flip-hint">Tap ↻</div>
+        </div>
+
+        <!-- VERSO -->
+        <div class="doc-card-back">
+          <div class="doc-back-header">
+            <span class="doc-back-title" style="color:${color}">${escHtml(backTitle)}</span>
+            <button class="doc-back-close" type="button">↺ retour</button>
+          </div>
+          <div class="doc-back-details">${detailsInner}</div>
+          <div class="doc-back-actions">
+            <button class="doc-view-btn-full" type="button">Voir</button>
+            <button class="doc-card-edit"     type="button">Modifier</button>
+            <button class="doc-share-btn"     type="button">Partager</button>
+            <button class="doc-card-remove"   type="button">×</button>
+          </div>
+        </div>
+
       </div>
     </div>`;
 }

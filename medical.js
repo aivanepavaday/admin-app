@@ -107,18 +107,22 @@ function renderGrid() {
     const doc = docs.find(d => d.id === id);
     if (!doc) return;
 
-    /* Boutons Voir */
-    card.querySelectorAll('.doc-view-btn, .doc-view-btn-full').forEach(btn => {
-      btn.addEventListener('click', e => { e.stopPropagation(); openViewer(doc); });
+    /* Voir */
+    card.querySelector('.doc-view-btn-full')?.addEventListener('click', e => {
+      e.stopPropagation(); openViewer(doc);
     });
 
-    /* Bouton Modifier */
+    /* Modifier */
     card.querySelector('.doc-card-edit')?.addEventListener('click', e => {
-      e.stopPropagation();
-      openEditModal(doc);
+      e.stopPropagation(); openEditModal(doc);
     });
 
-    /* Bouton Supprimer */
+    /* Partager */
+    card.querySelector('.doc-share-btn')?.addEventListener('click', e => {
+      e.stopPropagation(); handleShare(doc);
+    });
+
+    /* Supprimer */
     card.querySelector('.doc-card-remove')?.addEventListener('click', async e => {
       e.stopPropagation();
       try {
@@ -131,31 +135,55 @@ function renderGrid() {
         renderGrid();
         updateRappelsBadge();
         showToast('Document supprimé');
-      } catch (err) {
+      } catch {
         showToast('Erreur lors de la suppression');
       }
     });
 
-    /* Clic sur la carte → déplier / replier */
-    card.addEventListener('click', e => {
-      if (e.target.closest('.doc-view-btn') ||
-          e.target.closest('.doc-view-btn-full') ||
-          e.target.closest('.doc-card-edit') ||
-          e.target.closest('.doc-card-remove') ||
-          e.target.closest('.cat-badge')) return;
+    /* Retour (verso → recto) */
+    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
+      e.stopPropagation();
+      card.classList.remove('is-flipped');
+      expandedMedicalIds.delete(id);
+    });
 
-      const toggle = card.querySelector('.doc-card-expand-toggle span');
-      if (expandedMedicalIds.has(id)) {
-        expandedMedicalIds.delete(id);
-        card.classList.remove('expanded');
-        if (toggle) toggle.textContent = 'Détails';
-      } else {
+    /* Clic sur le recto → flip verso */
+    card.addEventListener('click', e => {
+      if (e.target.closest('.doc-view-btn-full') ||
+          e.target.closest('.doc-card-edit') ||
+          e.target.closest('.doc-share-btn') ||
+          e.target.closest('.doc-card-remove') ||
+          e.target.closest('.doc-back-close') ||
+          e.target.closest('.cat-badge')) return;
+      if (!card.classList.contains('is-flipped')) {
+        card.classList.add('is-flipped');
         expandedMedicalIds.add(id);
-        card.classList.add('expanded');
-        if (toggle) toggle.textContent = 'Réduire';
       }
     });
   });
+}
+
+/* Partage d'un document médical (mobile : Web Share API, desktop : téléchargement) */
+async function handleShare(doc) {
+  try {
+    const fullDoc = await getDocumentData(doc.id);
+    const blob = new Blob([fullDoc.data], { type: fullDoc.mimeType });
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], doc.name, { type: fullDoc.mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ title: doc.name, files: [file] }); showToast('Document partagé'); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = doc.name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Téléchargement démarré');
+  } catch {
+    showToast('Erreur lors du partage');
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════

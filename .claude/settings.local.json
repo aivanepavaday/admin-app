@@ -10,7 +10,8 @@
       "Bash(node --check modules/firestore-sync.js)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pavad\\\\Documents\\\\admin-app\" -Recurse -File -Filter \"*.html\" -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(grep -E \"\\\\.\\(js|html\\)$\")"
+      "Bash(grep -E \"\\\\.\\(js|html\\)$\")",
+      "Bash(node -e ' *)"
     ]
   }
 }
