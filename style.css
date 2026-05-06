@@ -705,59 +705,20 @@ a.nav-btn { text-decoration: none; }
 /* ── Responsive mobile (≤ 768 px) ── */
 @media (max-width: 768px) {
   /* Padding global réduit à 16 px de chaque côté */
-  .app { padding: 0 1rem; }
-
-  /* Header : ligne 1 = logo + profil + sync, ligne 2 = nav scrollable */
-  .header {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    padding: 0.75rem 0 0;
-    gap: 0;
-  }
-
-  .logo             { order: 1; flex: 1 1 auto; }
-  #nav-user-profile { order: 2; }
-  .sync-dot         { order: 3; margin-left: 0.5rem; }
-
-  /* Nav en ligne 2, scroll horizontal, scrollbar invisible */
-  .nav {
-    order: 4;
-    flex: 0 0 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex-wrap: nowrap;
-    gap: 0.15rem;
-    padding: 0.5rem 0 0.65rem;
-    margin-top: 0.5rem;
-    border-top: 1px solid var(--border);
-  }
-  .nav::-webkit-scrollbar { display: none; }
-
-  /* Boutons nav : pas de retour à la ligne, padding réduit */
-  .nav-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-size: 0.8rem;
-    padding: 0.35rem 0.7rem;
-  }
-
-  /* Nom d'utilisateur masqué pour gagner de la place */
-  .nav-user-name { display: none; }
-
-  /* Sections : padding vertical réduit */
-  .section { padding: 1.5rem 0 2rem; }
+  /* Sections : top réduit + espace pour la bottom nav */
+  .section { padding: 1.5rem 0 84px; }
 
   /* Input : pleine largeur */
   .input-area { max-width: 100%; }
 
-  /* Grille documents : 1 colonne pleine largeur */
+  /* Grille documents : 1 colonne */
   .doc-grid { grid-template-columns: 1fr; gap: 0.6rem; }
 
-  /* Filtres : retour à la ligne autorisé, pas de débordement */
+  /* Filtres */
   .cat-filter {
     flex-wrap: wrap;
     overflow-x: visible;
+    gap: 8px;
   }
 
   /* Toolbar : wrappable si nécessaire */

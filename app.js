@@ -106,6 +106,19 @@ navBtns.forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById(btn.dataset.section).classList.add('active');
+    _syncBottomNav(btn.dataset.section);
+  });
+});
+
+function _syncBottomNav(sectionId) {
+  document.querySelectorAll('#bottom-nav .bnav-tab[data-section]').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.section === sectionId);
+  });
+}
+
+document.querySelectorAll('#bottom-nav .bnav-tab[data-section]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelector(`.nav-btn[data-section="${tab.dataset.section}"]`)?.click();
   });
 });
 
@@ -1293,6 +1306,7 @@ if (location.hash === '#docs') {
   document.getElementById('docs')?.classList.add('active');
   history.replaceState(null, '', location.pathname);
 }
+_syncBottomNav(document.querySelector('.nav-btn.active')?.dataset.section ?? 'home');
 
 /* ─── Abonnement Firestore actif (pour désabonnement) ─── */
 let _unsubDocs = null;
@@ -1321,6 +1335,7 @@ async function init() {
       navBtns[0]?.classList.add('active');
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.getElementById('home')?.classList.add('active');
+      _syncBottomNav('home');
       questionInput.value = prefill;
       questionInput.style.height = 'auto';
       questionInput.style.height = questionInput.scrollHeight + 'px';

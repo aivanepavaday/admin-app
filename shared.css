@@ -572,8 +572,111 @@
 }
 .edit-doc-details-section.hidden { display: none; }
 
-/* ── Responsive mobile — cartes ── */
+/* ══════════════════════════════════════════════════════════════════
+   BOTTOM NAV + HEADER MOBILE — s'applique à toutes les pages
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Icône Paramètres dans le header — invisible sur desktop */
+.header-settings-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  text-decoration: none;
+  padding: 0.3rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.header-settings-btn:hover { color: #e8e8ed; background: #1e1e22; }
+.header-settings-btn svg { display: block; }
+
+/* Bottom nav — invisible sur desktop */
+.bottom-nav { display: none; }
+
 @media (max-width: 768px) {
-  /* Hauteur adaptée au contenu (plus de minimum fixe) */
+  /* Padding horizontal global */
+  .app { padding-left: 1rem; padding-right: 1rem; }
+
+  /* Header : logo s'étend, reste à droite */
+  .header { justify-content: flex-start; gap: 0.75rem; }
+  .header .logo { flex: 1 1 auto; }
+
+  /* Top nav masquée — remplacée par la bottom nav */
+  .nav { display: none !important; }
+  .nav-user-name { display: none; }
+
+  /* Espace pour la bottom nav sur toutes les pages */
+  .view, .main { padding-bottom: 84px; }
+
+  /* Cartes : hauteur adaptée au contenu */
   .doc-card-front { min-height: 0; }
+
+  /* Icône Paramètres visible */
+  .header-settings-btn { display: flex; }
+
+  /* ── Bottom Nav ── */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #111111;
+    border-top: 0.5px solid #2a2a2a;
+    padding: 10px 0 env(safe-area-inset-bottom, 16px);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: flex-start;
+  }
+
+  .bnav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+    color: #ffffff;
+    opacity: 0.45;
+    flex: 1;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bnav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 16px;
+    border-radius: 12px;
+    transition: background 0.15s;
+  }
+
+  .bnav-icon svg { width: 22px; height: 22px; display: block; }
+
+  .bnav-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    color: inherit;
+  }
+
+  .bnav-tab.active {
+    opacity: 1;
+    color: #a89aff;
+  }
+
+  .bnav-tab.active .bnav-icon { background: rgba(108, 99, 255, 0.13); }
+
+  .bnav-disabled {
+    opacity: 0.25 !important;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 }
