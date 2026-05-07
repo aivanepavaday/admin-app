@@ -247,6 +247,9 @@ EXTRACTION DES DÉTAILS (champ "details") — extrais uniquement les champs pré
 - Avis d'imposition : annee, revenu_fiscal, nombre_parts, montant_impot
 Omets les champs absents du document. Mets null si aucun détail ne s'applique.
 
+CASSE DES NOMS :
+Respecte scrupuleusement la casse des noms de marques et d'organismes. Exemples : "RED by SFR" et non "RED BY SFR", "Free Mobile" et non "FREE MOBILE", "EDF" reste "EDF". Ne mets jamais en majuscules un mot qui ne l'est pas normalement.
+
 FORMAT DE RÉPONSE JSON OBLIGATOIRE :
 {
   "categorie": "Santé|Logement|Revenus|Impôts|Assurance|Téléphone|Énergie|Autres",

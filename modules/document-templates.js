@@ -169,13 +169,16 @@ export function renderDocCard(doc, expandedIds = new Set()) {
     ? `<span class="subcat-badge">${escHtml(doc.sous_categorie)}</span>` : '';
 
   /* Dates */
-  const importDateStr = new Date(doc.date).toLocaleDateString('fr-FR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
+  const importD = doc.date ? new Date(doc.date) : null;
+  const importDateStr = importD && !isNaN(importD.getTime())
+    ? importD.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    : null;
+  const importSpan = importDateStr
+    ? `<span class="doc-card-date doc-card-date--import">Importé ${importDateStr}</span>`
+    : '';
   const dateHtml = doc.docDate
-    ? `<span class="doc-card-date">${escHtml(doc.docDate)}</span>
-       <span class="doc-card-date doc-card-date--import">Importé ${importDateStr}</span>`
-    : `<span class="doc-card-date doc-card-date--import">Importé ${importDateStr}</span>`;
+    ? `<span class="doc-card-date">${escHtml(doc.docDate)}</span>${importSpan}`
+    : importSpan;
 
   /* Rappel actif */
   let reminderHtml = '';
