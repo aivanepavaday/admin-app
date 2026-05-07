@@ -31,16 +31,12 @@
       </a>
     </header>
 
-    <!-- ══════════════════════════════════════════════════════════
-         VUE 1 : Liste des démarches
-         ══════════════════════════════════════════════════════════ -->
-    <div id="view-list" class="view active">
+    <!-- ── Démarches ── -->
+    <div class="view">
 
       <div class="list-top">
-        <div>
-          <h1 class="view-heading">Démarches</h1>
-          <p class="view-desc">Vérifiez vos documents et suivez vos démarches pas à pas</p>
-        </div>
+        <h1 class="view-heading">Démarches</h1>
+        <p class="view-desc">Vérifiez vos documents et suivez vos démarches pas à pas</p>
       </div>
 
       <!-- Barre de recherche -->
@@ -67,10 +63,9 @@
 
       <!-- Grille de cartes -->
       <div id="demarche-grid" class="demarche-grid">
-        <!-- Injecté par demarches.js -->
         <div class="loading-placeholder">
           <div class="spinner"></div>
-          <span>Chargement des démarches…</span>
+          <span>Chargement…</span>
         </div>
       </div>
 
@@ -84,24 +79,7 @@
         <span id="empty-query"></span>
       </div>
 
-    </div><!-- /view-list -->
-
-    <!-- ══════════════════════════════════════════════════════════
-         VUE 2 : Détail d'une démarche
-         ══════════════════════════════════════════════════════════ -->
-    <div id="view-detail" class="view">
-
-      <button id="back-btn" class="view-back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
-        Retour
-      </button>
-
-      <!-- Contenu injecté par renderDetail() -->
-      <div id="detail-body"></div>
-
-    </div><!-- /view-detail -->
+    </div>
 
   </div><!-- /.app -->
 
