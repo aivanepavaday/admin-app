@@ -258,6 +258,7 @@
 .doc-card-wrap {
   perspective: 1200px;
   animation: cardIn 0.2s ease both;
+  transition: min-height 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
 /* La pièce qui se retourne */
@@ -305,15 +306,16 @@
   border-radius: 10px 10px 0 0;
 }
 
-/* ── VERSO (absolute overlay, même dimensions que le recto) ── */
+/* ── VERSO (absolute, ancré en haut, hauteur libre) ── */
 .doc-card-back {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   transform: rotateY(180deg);
   display: flex;
   flex-direction: column;
   padding: 0.85rem 0.85rem 0.75rem;
-  overflow-y: auto;
 }
 
 /* ── Recto : éléments ── */
@@ -439,7 +441,6 @@
 .doc-back-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid #161620;
   margin-bottom: 0.35rem;
@@ -452,31 +453,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 65%;
+  max-width: 100%;
 }
-
-.doc-back-close {
-  background: none;
-  border: none;
-  color: #555;
-  font-family: inherit;
-  font-size: 0.65rem;
-  cursor: pointer;
-  padding: 0.18rem 0.4rem;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: color 0.15s, background 0.15s;
-}
-.doc-back-close:hover { color: #9090b0; background: #16161e; }
 
 /* Détails template */
 .doc-back-details {
-  flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   margin-bottom: 0.4rem;
 }
 

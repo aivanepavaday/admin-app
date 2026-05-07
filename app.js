@@ -414,6 +414,7 @@ function renderCatFilter() {
     pill.style.borderColor = color + '60';
 
     pill.innerHTML = `
+      <span class="cat-filter-dot" style="background:${color}"></span>
       ${escHtml(name)}
       <button class="cat-pill-delete" title="Supprimer le dossier" tabindex="-1">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -1119,22 +1120,21 @@ async function renderGrid() {
       showToast('Document supprimé');
     });
 
-    /* Retour (verso → recto) */
-    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
-      e.stopPropagation();
-      card.classList.remove('is-flipped');
-      expandedCards.delete(id);
-    });
-
-    /* Clic sur le recto → flip verso */
+    /* Tap n'importe où → toggle flip recto/verso */
     card.addEventListener('click', e => {
       if (e.target.closest('.doc-view-btn-full') ||
           e.target.closest('.doc-card-edit') ||
           e.target.closest('.doc-share-btn') ||
           e.target.closest('.doc-card-remove') ||
-          e.target.closest('.doc-back-close') ||
           e.target.closest('.cat-badge')) return;
-      if (!card.classList.contains('is-flipped')) {
+      const wrap = card.closest('.doc-card-wrap');
+      if (card.classList.contains('is-flipped')) {
+        card.classList.remove('is-flipped');
+        expandedCards.delete(id);
+        if (wrap) setTimeout(() => { wrap.style.minHeight = ''; }, 750);
+      } else {
+        const back = card.querySelector('.doc-card-back');
+        if (wrap && back) wrap.style.minHeight = back.offsetHeight + 'px';
         card.classList.add('is-flipped');
         expandedCards.add(id);
       }
@@ -1453,22 +1453,21 @@ function _attachCardEvents(docs) {
       showToast('Document supprimé');
     });
 
-    /* Retour (verso → recto) */
-    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
-      e.stopPropagation();
-      card.classList.remove('is-flipped');
-      expandedCards.delete(id);
-    });
-
-    /* Clic sur le recto → flip verso */
+    /* Tap n'importe où → toggle flip recto/verso */
     card.addEventListener('click', e => {
       if (e.target.closest('.doc-view-btn-full') ||
           e.target.closest('.doc-card-edit') ||
           e.target.closest('.doc-share-btn') ||
           e.target.closest('.doc-card-remove') ||
-          e.target.closest('.doc-back-close') ||
           e.target.closest('.cat-badge')) return;
-      if (!card.classList.contains('is-flipped')) {
+      const wrap = card.closest('.doc-card-wrap');
+      if (card.classList.contains('is-flipped')) {
+        card.classList.remove('is-flipped');
+        expandedCards.delete(id);
+        if (wrap) setTimeout(() => { wrap.style.minHeight = ''; }, 750);
+      } else {
+        const back = card.querySelector('.doc-card-back');
+        if (wrap && back) wrap.style.minHeight = back.offsetHeight + 'px';
         card.classList.add('is-flipped');
         expandedCards.add(id);
       }

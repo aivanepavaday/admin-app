@@ -243,7 +243,6 @@ export function renderDocCard(doc, expandedIds = new Set()) {
         <div class="doc-card-back">
           <div class="doc-back-header">
             <span class="doc-back-title" style="color:${color}">${escHtml(backTitle)}</span>
-            <button class="doc-back-close" type="button">↺ retour</button>
           </div>
           <div class="doc-back-details">${detailsInner}</div>
           <div class="doc-back-actions">

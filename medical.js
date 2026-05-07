@@ -140,22 +140,21 @@ function renderGrid() {
       }
     });
 
-    /* Retour (verso → recto) */
-    card.querySelector('.doc-back-close')?.addEventListener('click', e => {
-      e.stopPropagation();
-      card.classList.remove('is-flipped');
-      expandedMedicalIds.delete(id);
-    });
-
-    /* Clic sur le recto → flip verso */
+    /* Tap n'importe où → toggle flip recto/verso */
     card.addEventListener('click', e => {
       if (e.target.closest('.doc-view-btn-full') ||
           e.target.closest('.doc-card-edit') ||
           e.target.closest('.doc-share-btn') ||
           e.target.closest('.doc-card-remove') ||
-          e.target.closest('.doc-back-close') ||
           e.target.closest('.cat-badge')) return;
-      if (!card.classList.contains('is-flipped')) {
+      const wrap = card.closest('.doc-card-wrap');
+      if (card.classList.contains('is-flipped')) {
+        card.classList.remove('is-flipped');
+        expandedMedicalIds.delete(id);
+        if (wrap) setTimeout(() => { wrap.style.minHeight = ''; }, 750);
+      } else {
+        const back = card.querySelector('.doc-card-back');
+        if (wrap && back) wrap.style.minHeight = back.offsetHeight + 'px';
         card.classList.add('is-flipped');
         expandedMedicalIds.add(id);
       }

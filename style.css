@@ -468,6 +468,9 @@ a.nav-btn { text-decoration: none; }
 }
 
 .cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -478,6 +481,15 @@ a.nav-btn { text-decoration: none; }
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
   white-space: nowrap;
+}
+
+.cat-filter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  opacity: 0.85;
 }
 .cat-pill:hover  { color: var(--text); border-color: var(--border-hi); }
 .cat-pill.active {
@@ -542,8 +554,6 @@ a.nav-btn { text-decoration: none; }
 
 /* ── Pills de dossiers personnalisés ── */
 .cat-pill.custom {
-  display: inline-flex;
-  align-items: center;
   gap: 0.3rem;
 }
 
