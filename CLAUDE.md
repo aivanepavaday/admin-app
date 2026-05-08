@@ -68,7 +68,7 @@ admin-app/
 - Interface vocale via Web Speech API
 
 ### 5. Base de démarches (demarches.json)
-Démarches à inclure : APL, Passeport, Carte d'identité, Prime d'activité, CAF, Permis de conduire, Inscription Pôle Emploi, Déclaration d'impôts
+Démarches à inclure : APL, Passeport, Carte d'identité, Permis de conduire, Mise à jour carte Vitale
 Pour chaque démarche : liste des documents nécessaires, étapes, explications simplifiées, liens officiels
 
 ### 6. Écran de configuration des règles Gmail

@@ -193,39 +193,6 @@
       ],
       "lien": "https://www.francetravail.fr",
       "lienLabel": "francetravail.fr"
-    },
-    {
-      "id": "impots",
-      "label": "Déclaration d'impôts",
-      "fullLabel": "Déclaration annuelle des revenus",
-      "description": "Obligation annuelle permettant au fisc de calculer votre impôt sur le revenu. La déclaration est pré-remplie et à vérifier chaque printemps.",
-      "category": "Impôts",
-      "color": "#ff4d6a",
-      "tags": ["impots", "declaration", "revenus", "fisc", "dgfip", "impot sur le revenu", "cerfa"],
-      "documents": [
-        {
-          "label": "Fiches de paie (année N-1)",
-          "keywords": ["salaire", "bulletin", "paie", "fiche de paie", "remuneration"]
-        },
-        {
-          "label": "Relevés bancaires",
-          "keywords": ["releve", "extrait", "compte", "bancaire", "banque", "virement"]
-        },
-        {
-          "label": "Justificatifs de charges déductibles",
-          "keywords": ["charges", "facture", "assurance", "mutuelle", "credit", "don", "pension"]
-        }
-      ],
-      "etapes": [
-        "Se connecter sur impots.gouv.fr avec votre numéro fiscal",
-        "Accéder à votre déclaration pré-remplie (onglet « Déclarer »)",
-        "Vérifier les montants pré-remplis (salaires, revenus mobiliers, etc.)",
-        "Corriger ou compléter si nécessaire (frais réels, revenus fonciers, dons…)",
-        "Valider et signer électroniquement avant la date limite (mai-juin)",
-        "Conserver l'avis de déclaration reçu quelques semaines plus tard"
-      ],
-      "lien": "https://www.impots.gouv.fr",
-      "lienLabel": "impots.gouv.fr"
     }
   ]
 }
