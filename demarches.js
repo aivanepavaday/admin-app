@@ -337,7 +337,13 @@ async function init() {
   initAuth().then(user => {
     if (!user) return;
     subscribeDocuments(user.uid, docs => {
-      if (docs.length > 0) console.log('STRUCTURE DOC:', JSON.stringify(docs[0], null, 2));
+      if (docs.length > 0) {
+        console.log('PREMIER DOC FIRESTORE:', JSON.stringify(docs[0], null, 2));
+        console.log('CHAMPS DISPONIBLES:', Object.keys(docs[0] || {}));
+        console.log('CATÉGORIES PRÉSENTES:', [...new Set(docs.map(d => d.category || d.categorie || '(vide)'))]);
+      } else {
+        console.log('FIRESTORE: aucun document reçu');
+      }
       userDocs = docs;
       renderGrid();
     });

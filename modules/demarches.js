@@ -253,6 +253,19 @@ const documentValide = (doc, regle) => {
    MATCHING PRINCIPAL
    ══════════════════════════════════════════════════════════════ */
 
+/* Lit la catégorie d'un doc quel que soit le nom du champ */
+const getCategorie = (doc) =>
+  doc.category || doc.categorie || doc.Category || doc.Categorie || '';
+
+/* Lit la sous-catégorie d'un doc quel que soit le nom du champ */
+const getSousCategorie = (doc) =>
+  doc.sous_categorie || doc.subcategorie || doc.subCategory ||
+  doc.sousCategorie  || doc.sous_cat     || doc.type        || '';
+
+/* Lit le nom d'un doc quel que soit le nom du champ */
+const getNom = (doc) =>
+  doc.name || doc.nom || doc.fileName || doc.filename || '';
+
 /**
  * Cherche le meilleur document utilisateur pour un requis de démarche.
  * Retourne { doc, valide, raison } ou null si aucun candidat trouvé.
@@ -265,23 +278,39 @@ export function trouverDocumentValide(docRequis, userDocuments) {
 
   /* 1. Filtrer par catégorie acceptée */
   let candidats = userDocuments.filter(doc =>
-    regle.categoriesAcceptees.includes(doc.category || '')
+    regle.categoriesAcceptees.includes(getCategorie(doc))
+  );
+
+  console.log(
+    `[Démarches] "${regle.label}" (${docRequis.rule})`,
+    `— ${userDocuments.length} docs total`,
+    `— ${candidats.length} dans catégories [${regle.categoriesAcceptees.join(', ')}]`,
+    candidats.length === 0
+      ? `— catégories trouvées: [${[...new Set(userDocuments.map(getCategorie))].join(', ')}]`
+      : ''
   );
 
   /* 2. Exclure les sous-catégories interdites */
   if (regle.subcategoriesExclues?.length > 0) {
     candidats = candidats.filter(doc => {
-      const sub = (doc.sous_categorie || '').toLowerCase();
+      const sub = getSousCategorie(doc).toLowerCase();
       return !regle.subcategoriesExclues.some(e => sub.includes(e.toLowerCase()));
     });
   }
 
   /* 3. Exiger une sous-catégorie précise */
   if (regle.subcategoriesRequises?.length > 0) {
+    const avant = candidats.length;
     candidats = candidats.filter(doc => {
-      const sub = (doc.sous_categorie || '').toLowerCase();
+      const sub = getSousCategorie(doc).toLowerCase();
       return regle.subcategoriesRequises.some(r => sub.includes(r.toLowerCase()));
     });
+    if (candidats.length === 0 && avant > 0) {
+      console.log(
+        `[Démarches] "${regle.label}": filtre sous-cat élimine tout`,
+        `— sous-cats trouvées: [${[...new Set(userDocuments.map(getSousCategorie).filter(Boolean))].join(', ')}]`
+      );
+    }
   }
 
   /* 4. Trier par date décroissante — le plus récent en premier */
@@ -291,13 +320,14 @@ export function trouverDocumentValide(docRequis, userDocuments) {
     return db - da;
   });
 
-  console.log(`[Démarches] "${regle.label}": ${candidats.length} candidat(s),`,
-    `meilleur: ${candidats[0]?.name || 'aucun'}`);
-
   if (!candidats[0]) return null;
 
   /* 5. Vérifier la règle d'âge sur le meilleur candidat */
   const check = documentValide(candidats[0], regle);
+  console.log(
+    `[Démarches] "${regle.label}": meilleur candidat → "${getNom(candidats[0])}"`,
+    `— valide: ${check.valide}${check.raison ? ' — ' + check.raison : ''}`
+  );
   return { doc: candidats[0], valide: check.valide, raison: check.raison };
 }
 
