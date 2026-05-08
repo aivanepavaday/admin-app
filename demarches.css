@@ -109,10 +109,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
    ═══════════════════════════════════════════════════════════════════ */
 
 .demarche-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: .75rem;
-  align-items: start;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* ── Carte démarche ── */
@@ -248,7 +250,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 .d-doc-external { color: var(--muted); }
 
 .d-doc-icon  { flex-shrink: 0; font-size: .85rem; line-height: 1; margin-top: .05rem; }
-.d-doc-label { flex: 1; }
+.d-doc-label { flex: 1; display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
+.d-doc-req   { white-space: nowrap; }
+.d-doc-match { color: #888; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
 .d-ext-link {
   color: var(--accent);
@@ -334,7 +338,6 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .app           { padding: 0 1rem; }
-  .demarche-grid { grid-template-columns: 1fr; }
   .view          { padding-bottom: 84px; }
   .nav .nav-link:not(.active) { display: none; }
 }

@@ -49,6 +49,19 @@ function progressColor(pct) {
   return '#2a2a35';
 }
 
+/* ── Trouve le document utilisateur le plus récent correspondant ── */
+function findMatchingDoc(docRequis) {
+  if (docRequis.externe || !docRequis.categories?.length) return null;
+  /* userDocs est déjà trié par date décroissante — première correspondance = plus récent */
+  return userDocs.find(doc =>
+    docRequis.categories.includes(doc.category || doc.categorie || '')
+  ) ?? null;
+}
+
+function truncate(str, max = 28) {
+  return str.length > max ? str.slice(0, max) + '…' : str;
+}
+
 /* ── Rendu d'une carte ── */
 function renderCard(d) {
   const prog     = getProgression(d, userDocs);
@@ -68,18 +81,23 @@ function renderCard(d) {
 
   /* Liste des documents */
   const docsHtml = d.documents.map(doc => {
-    const present = checkDocumentPresent(doc, userDocs);
     if (doc.externe) {
       return `<div class="d-doc-item d-doc-external">
         <span class="d-doc-icon">🔗</span>
-        <span class="d-doc-label">
+        <div class="d-doc-label">
           <a href="${esc(doc.url || '#')}" target="_blank" rel="noopener" class="d-ext-link">${esc(doc.label)}</a>
-        </span>
+        </div>
       </div>`;
     }
-    return `<div class="d-doc-item ${present ? 'd-doc-found' : 'd-doc-missing'}">
-      <span class="d-doc-icon">${present ? '✅' : '⬜'}</span>
-      <span class="d-doc-label">${esc(doc.label)}</span>
+    const matched = findMatchingDoc(doc);
+    const matchSpan = matched
+      ? `<span class="d-doc-match">→ ${esc(truncate(matched.name))}</span>`
+      : '';
+    return `<div class="d-doc-item ${matched ? 'd-doc-found' : 'd-doc-missing'}">
+      <span class="d-doc-icon">${matched ? '✅' : '⬜'}</span>
+      <div class="d-doc-label">
+        <span class="d-doc-req">${esc(doc.label)}</span>${matchSpan}
+      </div>
     </div>`;
   }).join('');
 
