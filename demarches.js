@@ -7,6 +7,7 @@ import {
   getDemarchesData, getCatColor,
   checkDocumentPresent, getProgression,
   searchDemarches, buildAssistantQuestion,
+  getPriorityCategories, getDocDate,
 } from './modules/demarches.js';
 import { initDB, getAllDocuments, getDocumentData } from './modules/documents.js';
 import { initAuth }               from './modules/auth.js';
@@ -51,11 +52,35 @@ function progressColor(pct) {
 
 /* ── Trouve le document utilisateur le plus récent correspondant ── */
 function findMatchingDoc(docRequis) {
-  if (docRequis.externe || !docRequis.categories?.length) return null;
-  /* userDocs est déjà trié par date décroissante — première correspondance = plus récent */
-  return userDocs.find(doc =>
-    docRequis.categories.includes(doc.category || doc.categorie || '')
-  ) ?? null;
+  if (docRequis.externe) return null;
+  const cats = getPriorityCategories(docRequis);
+  if (!cats.length) return null;
+
+  /* Chercher par ordre de priorité de catégorie, puis trier par date décroissante */
+  for (const cat of cats) {
+    const candidates = userDocs.filter(doc =>
+      (doc.category || doc.categorie || '') === cat
+    );
+    if (!candidates.length) continue;
+    candidates.sort((a, b) => {
+      const da = getDocDate(a), db = getDocDate(b);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return db - da;
+    });
+    return candidates[0];
+  }
+  return null;
+}
+
+/* ── Vérifie si un document est dans les 3 derniers mois ── */
+function isRecent3Months(doc) {
+  const d = getDocDate(doc);
+  if (!d) return true; /* pas de date → on ne bloque pas */
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  return d >= threeMonthsAgo;
 }
 
 function truncate(str, max = 28) {
@@ -89,18 +114,34 @@ function renderCard(d) {
         </div>
       </div>`;
     }
-    const matched = findMatchingDoc(doc);
-    const matchSpan = matched
-      ? `<span class="d-doc-match"
-              data-doc-id="${esc(String(matched.id ?? ''))}"
-              data-doc-url="${esc(matched.download_url ?? '')}"
-              data-doc-mime="${esc(matched.mimeType ?? '')}"
-              data-doc-name="${esc(matched.name ?? '')}">→ ${esc(truncate(matched.name))}</span>`
+
+    const matched  = findMatchingDoc(doc);
+    const needsFresh = doc.label.includes('-3 mois');
+    const stale    = matched && needsFresh && !isRecent3Months(matched);
+
+    /* Document trouvé mais périmé → traiter comme absent */
+    const effective = matched && !stale ? matched : null;
+
+    let rightHtml = '';
+    if (stale) {
+      rightHtml = `<span class="d-doc-stale">Document trop ancien</span>`;
+    } else if (effective) {
+      rightHtml = `<span class="d-doc-match"
+          data-doc-id="${esc(String(effective.id ?? ''))}"
+          data-doc-url="${esc(effective.download_url ?? '')}"
+          data-doc-mime="${esc(effective.mimeType ?? '')}"
+          data-doc-name="${esc(effective.name ?? '')}">→ ${esc(truncate(effective.name))}</span>`;
+    }
+
+    const ribNote = doc.type === 'rib'
+      ? `<span class="d-doc-rib-note">💡 Document bancaire requis (pas une fiche de paie)</span>`
       : '';
-    return `<div class="d-doc-item ${matched ? 'd-doc-found' : 'd-doc-missing'}">
-      <span class="d-doc-icon">${matched ? '✅' : '⬜'}</span>
+
+    return `<div class="d-doc-item ${effective ? 'd-doc-found' : 'd-doc-missing'}">
+      <span class="d-doc-icon">${effective ? '✅' : '⬜'}</span>
       <div class="d-doc-label">
-        <span class="d-doc-req">${esc(doc.label)}</span>${matchSpan}
+        <span class="d-doc-req">${esc(doc.label)}</span>${rightHtml}
+        ${ribNote}
       </div>
     </div>`;
   }).join('');

@@ -250,7 +250,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 .d-doc-external { color: var(--muted); }
 
 .d-doc-icon  { flex-shrink: 0; font-size: .85rem; line-height: 1; margin-top: .05rem; }
-.d-doc-label { flex: 1; display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
+.d-doc-label { flex: 1; display: flex; align-items: baseline; gap: .4rem; flex-wrap: wrap; min-width: 0; }
 .d-doc-req   { white-space: nowrap; }
 .d-doc-match {
   color: #a89aff;
@@ -263,6 +263,21 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
   text-decoration: none;
 }
 .d-doc-match:hover { text-decoration: underline; }
+
+.d-doc-stale {
+  font-size: .7rem;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+.d-doc-rib-note {
+  display: block;
+  width: 100%;
+  font-size: .68rem;
+  color: #666;
+  line-height: 1.3;
+  margin-top: .1rem;
+}
 
 .d-ext-link {
   color: var(--accent);

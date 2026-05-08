@@ -5,6 +5,17 @@
 
 'use strict';
 
+/* ── Priorités par type de document : ordre décroissant de préférence ── */
+const PRIORITES_DOCUMENTS = {
+  justificatif_domicile: ['Logement', 'Énergie', 'Téléphone'],
+  identite:              ['Identité'],
+  revenus:               ['Revenus'],
+  impots:                ['Impôts'],
+  rib:                   ['Revenus'],
+  assurance:             ['Assurance', 'Santé'],
+  logement:              ['Logement'],
+};
+
 /* ── Données ── */
 const DEMARCHES_DATA = [
   {
@@ -14,9 +25,9 @@ const DEMARCHES_DATA = [
     categorie: 'Identité',
     delaiEstime: '3 à 6 semaines',
     documents: [
-      { id: 'doc1', label: 'Ancien passeport ou CNI',          categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', categories: ['Logement', 'Énergie', 'Téléphone'] },
-      { id: 'doc3', label: "Photo d'identité récente",         categories: ['Identité'] },
+      { id: 'doc1', label: 'Ancien passeport ou CNI',          type: 'identite',             categories: ['Identité'] },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
+      { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
       { id: 'doc4', label: 'Formulaire CERFA (à télécharger)', categories: [], externe: true,
         url: 'https://www.service-public.fr/particuliers/vosdroits/R11403' },
     ],
@@ -28,9 +39,9 @@ const DEMARCHES_DATA = [
     categorie: 'Identité',
     delaiEstime: '3 à 6 semaines',
     documents: [
-      { id: 'doc1', label: 'Ancienne CNI ou passeport',        categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', categories: ['Logement', 'Énergie', 'Téléphone'] },
-      { id: 'doc3', label: "Photo d'identité récente",         categories: ['Identité'] },
+      { id: 'doc1', label: 'Ancienne CNI ou passeport',        type: 'identite',             categories: ['Identité'] },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
+      { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
     ],
   },
   {
@@ -40,10 +51,10 @@ const DEMARCHES_DATA = [
     categorie: 'Logement',
     delaiEstime: '1 à 2 mois',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition",                    categories: ['Impôts'] },
-      { id: 'doc2', label: 'Contrat de location / Quittance',      categories: ['Logement'] },
-      { id: 'doc3', label: 'RIB',                                   categories: ['Revenus'] },
-      { id: 'doc4', label: "Justificatif d'identité (CNI/Passeport)", categories: ['Identité'] },
+      { id: 'doc1', label: "Avis d'imposition",                    type: 'impots',   categories: ['Impôts'] },
+      { id: 'doc2', label: 'Contrat de location / Quittance',      type: 'logement', categories: ['Logement'] },
+      { id: 'doc3', label: 'RIB',                                   type: 'rib',      categories: ['Revenus'] },
+      { id: 'doc4', label: "Justificatif d'identité (CNI/Passeport)", type: 'identite', categories: ['Identité'] },
     ],
   },
   {
@@ -53,9 +64,9 @@ const DEMARCHES_DATA = [
     categorie: 'Impôts',
     delaiEstime: 'Avant mai chaque année',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition N-1",               categories: ['Impôts'] },
-      { id: 'doc2', label: 'Bulletins de salaire',                 categories: ['Revenus'] },
-      { id: 'doc3', label: 'Justificatifs de charges déductibles', categories: ['Assurance', 'Santé'] },
+      { id: 'doc1', label: "Avis d'imposition N-1",               type: 'impots',    categories: ['Impôts'] },
+      { id: 'doc2', label: 'Bulletins de salaire',                 type: 'revenus',   categories: ['Revenus'] },
+      { id: 'doc3', label: 'Justificatifs de charges déductibles', type: 'assurance', categories: ['Assurance', 'Santé'] },
     ],
   },
   {
@@ -65,9 +76,9 @@ const DEMARCHES_DATA = [
     categorie: 'Santé',
     delaiEstime: '2 à 4 semaines',
     documents: [
-      { id: 'doc1', label: "Justificatif d'identité",  categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
-      { id: 'doc3', label: "Photo d'identité récente", categories: [] },
+      { id: 'doc1', label: "Justificatif d'identité",  type: 'identite',             categories: ['Identité'] },
+      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
+      { id: 'doc3', label: "Photo d'identité récente", type: 'identite',             categories: [] },
     ],
   },
   {
@@ -77,10 +88,10 @@ const DEMARCHES_DATA = [
     categorie: 'Revenus',
     delaiEstime: '1 à 3 mois',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition",        categories: ['Impôts'] },
-      { id: 'doc2', label: 'Justificatif de domicile', categories: ['Logement', 'Énergie'] },
-      { id: 'doc3', label: 'RIB',                       categories: ['Revenus'] },
-      { id: 'doc4', label: "Justificatif d'identité",  categories: ['Identité'] },
+      { id: 'doc1', label: "Avis d'imposition",        type: 'impots',               categories: ['Impôts'] },
+      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie'] },
+      { id: 'doc3', label: 'RIB',                       type: 'rib',                  categories: ['Revenus'] },
+      { id: 'doc4', label: "Justificatif d'identité",  type: 'identite',             categories: ['Identité'] },
     ],
   },
 ];
@@ -108,13 +119,29 @@ export function getCatColor(cat) {
   return CAT_COLORS[cat] ?? '#5a5a6a';
 }
 
+export function getPriorityCategories(docRequis) {
+  if (docRequis.type && PRIORITES_DOCUMENTS[docRequis.type]) {
+    return PRIORITES_DOCUMENTS[docRequis.type];
+  }
+  return docRequis.categories ?? [];
+}
+
+/** Retourne la date la plus significative d'un document pour le tri. */
+export function getDocDate(doc) {
+  const raw = doc.documentDate ?? doc.uploadDate ?? doc.createdAt ?? doc.date ?? null;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 /** Vérifie si un document requis est présent dans les docs de l'utilisateur. */
 export function checkDocumentPresent(docRequis, userDocuments) {
   if (docRequis.externe) return false;
-  if (!docRequis.categories || docRequis.categories.length === 0) return false;
+  const cats = getPriorityCategories(docRequis);
+  if (!cats.length) return false;
   return userDocuments.some(doc => {
     const cat = doc.category || doc.categorie || '';
-    return docRequis.categories.includes(cat);
+    return cats.includes(cat);
   });
 }
 
