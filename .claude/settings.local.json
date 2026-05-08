@@ -12,7 +12,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(grep -E \"\\\\.\\(js|html\\)$\")",
       "Bash(node -e ' *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(npm run *)"
     ]
   }
 }
