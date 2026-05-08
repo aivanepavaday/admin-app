@@ -26,7 +26,7 @@ const DEMARCHES_DATA = [
     delaiEstime: '3 à 6 semaines',
     documents: [
       { id: 'doc1', label: 'Ancien passeport ou CNI',          type: 'identite',             categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'], fraicheur_mois: 3 },
       { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
       { id: 'doc4', label: 'Formulaire CERFA (à télécharger)', categories: [], externe: true,
         url: 'https://www.service-public.fr/particuliers/vosdroits/R11403' },
@@ -40,7 +40,7 @@ const DEMARCHES_DATA = [
     delaiEstime: '3 à 6 semaines',
     documents: [
       { id: 'doc1', label: 'Ancienne CNI ou passeport',        type: 'identite',             categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'], fraicheur_mois: 3 },
       { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
     ],
   },
@@ -53,7 +53,7 @@ const DEMARCHES_DATA = [
     documents: [
       { id: 'doc1', label: "Avis d'imposition",                    type: 'impots',   categories: ['Impôts'] },
       { id: 'doc2', label: 'Contrat de location / Quittance',      type: 'logement', categories: ['Logement'] },
-      { id: 'doc3', label: 'RIB',                                   type: 'rib',      categories: ['Revenus'] },
+      { id: 'doc3', label: 'RIB',                                   type: 'rib',      categories: ['Revenus'], matchSubcategory: 'rib' },
       { id: 'doc4', label: "Justificatif d'identité (CNI/Passeport)", type: 'identite', categories: ['Identité'] },
     ],
   },
@@ -89,8 +89,8 @@ const DEMARCHES_DATA = [
     delaiEstime: '1 à 3 mois',
     documents: [
       { id: 'doc1', label: "Avis d'imposition",        type: 'impots',               categories: ['Impôts'] },
-      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie'] },
-      { id: 'doc3', label: 'RIB',                       type: 'rib',                  categories: ['Revenus'] },
+      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie'], fraicheur_mois: 3 },
+      { id: 'doc3', label: 'RIB',                       type: 'rib',                  categories: ['Revenus'], matchSubcategory: 'rib' },
       { id: 'doc4', label: "Justificatif d'identité",  type: 'identite',             categories: ['Identité'] },
     ],
   },
@@ -126,12 +126,29 @@ export function getPriorityCategories(docRequis) {
   return docRequis.categories ?? [];
 }
 
-/** Retourne la date la plus significative d'un document pour le tri. */
+/**
+ * Retourne la date la plus significative d'un document.
+ * Priorité : docDate (date réelle du doc, "DD/MM/YYYY") > date_import (Firestore Timestamp) > date (IndexedDB number)
+ */
 export function getDocDate(doc) {
-  const raw = doc.documentDate ?? doc.uploadDate ?? doc.createdAt ?? doc.date ?? null;
-  if (!raw) return null;
-  const d = new Date(raw);
-  return isNaN(d.getTime()) ? null : d;
+  /* 1. docDate : date extraite par l'IA — "DD/MM/YYYY" */
+  if (doc.docDate) {
+    const parts = String(doc.docDate).split('/');
+    if (parts.length === 3) {
+      const [d, m, y] = parts.map(Number);
+      const dt = new Date(y, m - 1, d);
+      if (!isNaN(dt.getTime())) return dt;
+    }
+  }
+  /* 2. date_import : Firestore Timestamp (objet avec .toMillis() ou .seconds) */
+  if (doc.date_import) {
+    const ts = doc.date_import;
+    if (typeof ts.toMillis === 'function') return new Date(ts.toMillis());
+    if (typeof ts.seconds === 'number')    return new Date(ts.seconds * 1000);
+  }
+  /* 3. date : timestamp IndexedDB (number) */
+  if (typeof doc.date === 'number') return new Date(doc.date);
+  return null;
 }
 
 /** Vérifie si un document requis est présent dans les docs de l'utilisateur. */
@@ -139,9 +156,30 @@ export function checkDocumentPresent(docRequis, userDocuments) {
   if (docRequis.externe) return false;
   const cats = getPriorityCategories(docRequis);
   if (!cats.length) return false;
+
   return userDocuments.some(doc => {
     const cat = doc.category || doc.categorie || '';
-    return cats.includes(cat);
+    if (!cats.includes(cat)) return false;
+
+    /* Filtre sous-catégorie (ex: RIB) */
+    if (docRequis.matchSubcategory) {
+      const term    = docRequis.matchSubcategory.toLowerCase();
+      const subcat  = (doc.sous_categorie ?? '').toLowerCase();
+      const docName = (doc.name ?? '').toLowerCase();
+      if (!subcat.includes(term) && !docName.includes(term)) return false;
+    }
+
+    /* Filtre de fraîcheur */
+    if (docRequis.fraicheur_mois) {
+      const d = getDocDate(doc);
+      if (!d) return false;
+      const maintenant = new Date();
+      const diffMois = (maintenant.getFullYear() - d.getFullYear()) * 12
+                     + (maintenant.getMonth() - d.getMonth());
+      if (diffMois > docRequis.fraicheur_mois) return false;
+    }
+
+    return true;
   });
 }
 

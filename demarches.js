@@ -56,12 +56,24 @@ function findMatchingDoc(docRequis) {
   const cats = getPriorityCategories(docRequis);
   if (!cats.length) return null;
 
-  /* Chercher par ordre de priorité de catégorie, puis trier par date décroissante */
+  /* Chercher par ordre de priorité de catégorie */
   for (const cat of cats) {
-    const candidates = userDocs.filter(doc =>
+    let candidates = userDocs.filter(doc =>
       (doc.category || doc.categorie || '') === cat
     );
     if (!candidates.length) continue;
+
+    /* Filtre sous-catégorie (ex: RIB) — vérifie nom du fichier ET sous_categorie */
+    if (docRequis.matchSubcategory) {
+      const term = docRequis.matchSubcategory.toLowerCase();
+      candidates = candidates.filter(doc =>
+        (doc.sous_categorie ?? '').toLowerCase().includes(term) ||
+        (doc.name ?? '').toLowerCase().includes(term)
+      );
+      if (!candidates.length) continue;
+    }
+
+    /* Trier par date décroissante — plus récent en premier */
     candidates.sort((a, b) => {
       const da = getDocDate(a), db = getDocDate(b);
       if (!da && !db) return 0;
@@ -74,13 +86,27 @@ function findMatchingDoc(docRequis) {
   return null;
 }
 
-/* ── Vérifie si un document est dans les 3 derniers mois ── */
-function isRecent3Months(doc) {
-  const d = getDocDate(doc);
-  if (!d) return true; /* pas de date → on ne bloque pas */
-  const threeMonthsAgo = new Date();
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  return d >= threeMonthsAgo;
+/* ── Vérifie si un document est dans les N derniers mois ── */
+function isDocumentFrais(doc, moisMax) {
+  /* Chercher la date dans tous les champs possibles (vrais noms de champs) */
+  const dateStr = doc.docDate || doc.date_import || doc.date || null;
+  if (!dateStr) {
+    console.log('[Fraîcheur] Aucune date trouvée sur le document', doc.name);
+    return false;
+  }
+
+  const docDate = getDocDate(doc);
+  if (!docDate || isNaN(docDate.getTime())) {
+    console.log('[Fraîcheur] Date invalide :', dateStr, 'pour', doc.name);
+    return false;
+  }
+
+  const maintenant = new Date();
+  const diffMois = (maintenant.getFullYear() - docDate.getFullYear()) * 12
+                 + (maintenant.getMonth() - docDate.getMonth());
+
+  console.log('[Fraîcheur]', doc.name, '— Date du doc:', doc.docDate ?? dateStr, '— Diff mois:', diffMois, '— Max:', moisMax, '— Frais:', diffMois <= moisMax);
+  return diffMois <= moisMax;
 }
 
 function truncate(str, max = 28) {
@@ -115,9 +141,8 @@ function renderCard(d) {
       </div>`;
     }
 
-    const matched  = findMatchingDoc(doc);
-    const needsFresh = doc.label.includes('-3 mois');
-    const stale    = matched && needsFresh && !isRecent3Months(matched);
+    const matched   = findMatchingDoc(doc);
+    const stale     = matched && doc.fraicheur_mois && !isDocumentFrais(matched, doc.fraicheur_mois);
 
     /* Document trouvé mais périmé → traiter comme absent */
     const effective = matched && !stale ? matched : null;
