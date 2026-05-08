@@ -246,6 +246,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
 }
 
 .d-doc-found   { background: rgba(34, 197, 94, .07); }
+.d-doc-warning { background: rgba(245, 158, 11, .08); }
 .d-doc-missing { color: var(--muted); }
 .d-doc-external { color: var(--muted); }
 
@@ -268,6 +269,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
   font-size: .7rem;
   color: #f59e0b;
   white-space: nowrap;
+}
+
+.d-doc-fail-msg {
+  display: block;
+  width: 100%;
+  font-size: 11px;
+  color: #f59e0b;
+  line-height: 1.3;
+  margin-top: .1rem;
 }
 
 .d-doc-rib-note {

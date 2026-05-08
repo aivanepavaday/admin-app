@@ -5,15 +5,57 @@
 
 'use strict';
 
-/* ── Priorités par type de document : ordre décroissant de préférence ── */
-const PRIORITES_DOCUMENTS = {
-  justificatif_domicile: ['Logement', 'Énergie', 'Téléphone'],
-  identite:              ['Identité'],
-  revenus:               ['Revenus'],
-  impots:                ['Impôts'],
-  rib:                   ['Revenus'],
-  assurance:             ['Assurance', 'Santé'],
-  logement:              ['Logement'],
+/* ── Règles centralisées de validation des documents ── */
+export const DOCUMENT_RULES = {
+  justificatif_domicile: {
+    label: 'Justificatif de domicile',
+    ageMaxMois: 3,
+    categoriesAcceptees: ['Logement', 'Énergie', 'Téléphone'],
+    subcategoriesExclues: ['Ordonnance', 'Prise de sang', 'Fiche de paie', 'Bulletin de salaire'],
+    messageEchec: 'Doit dater de moins de 3 mois',
+  },
+  rib: {
+    label: 'RIB',
+    ageMaxMois: null,
+    categoriesAcceptees: ['Revenus'],
+    subcategoriesRequises: ['RIB', 'Rib', 'rib'],
+    messageEchec: 'RIB bancaire requis (pas une fiche de paie)',
+  },
+  avis_imposition: {
+    label: "Avis d'imposition",
+    ageMaxMois: 14,
+    categoriesAcceptees: ['Impôts'],
+    subcategoriesExclues: [],
+    messageEchec: "Avis d'imposition trop ancien",
+  },
+  justificatif_identite: {
+    label: "Justificatif d'identité",
+    ageMaxMois: null,
+    categoriesAcceptees: ['Identité'],
+    subcategoriesExclues: [],
+    messageEchec: null,
+  },
+  bulletin_salaire: {
+    label: 'Bulletin de salaire',
+    ageMaxMois: 3,
+    categoriesAcceptees: ['Revenus'],
+    subcategoriesRequises: ['Fiche de paie', 'Bulletin de salaire', 'Salaire', 'Paie'],
+    messageEchec: 'Doit dater de moins de 3 mois',
+  },
+  contrat_location: {
+    label: 'Contrat de location / Quittance',
+    ageMaxMois: 3,
+    categoriesAcceptees: ['Logement'],
+    subcategoriesExclues: [],
+    messageEchec: 'Quittance trop ancienne (plus de 3 mois)',
+  },
+  justificatif_charges: {
+    label: 'Justificatifs de charges déductibles',
+    ageMaxMois: 14,
+    categoriesAcceptees: ['Assurance', 'Santé'],
+    subcategoriesExclues: [],
+    messageEchec: null,
+  },
 };
 
 /* ── Données ── */
@@ -25,10 +67,10 @@ const DEMARCHES_DATA = [
     categorie: 'Identité',
     delaiEstime: '3 à 6 semaines',
     documents: [
-      { id: 'doc1', label: 'Ancien passeport ou CNI',          type: 'identite',             categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'], fraicheur_mois: 3 },
-      { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
-      { id: 'doc4', label: 'Formulaire CERFA (à télécharger)', categories: [], externe: true,
+      { id: 'doc1', label: 'Ancien passeport ou CNI',          type: 'justificatif_identite' },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile' },
+      { id: 'doc3', label: "Photo d'identité récente",         type: 'justificatif_identite' },
+      { id: 'doc4', label: 'Formulaire CERFA (à télécharger)', externe: true,
         url: 'https://www.service-public.fr/particuliers/vosdroits/R11403' },
     ],
   },
@@ -39,9 +81,9 @@ const DEMARCHES_DATA = [
     categorie: 'Identité',
     delaiEstime: '3 à 6 semaines',
     documents: [
-      { id: 'doc1', label: 'Ancienne CNI ou passeport',        type: 'identite',             categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'], fraicheur_mois: 3 },
-      { id: 'doc3', label: "Photo d'identité récente",         type: 'identite',             categories: ['Identité'] },
+      { id: 'doc1', label: 'Ancienne CNI ou passeport',        type: 'justificatif_identite' },
+      { id: 'doc2', label: 'Justificatif de domicile -3 mois', type: 'justificatif_domicile' },
+      { id: 'doc3', label: "Photo d'identité récente",         type: 'justificatif_identite' },
     ],
   },
   {
@@ -51,10 +93,10 @@ const DEMARCHES_DATA = [
     categorie: 'Logement',
     delaiEstime: '1 à 2 mois',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition",                    type: 'impots',   categories: ['Impôts'] },
-      { id: 'doc2', label: 'Contrat de location / Quittance',      type: 'logement', categories: ['Logement'] },
-      { id: 'doc3', label: 'RIB',                                   type: 'rib',      categories: ['Revenus'], matchSubcategory: 'rib' },
-      { id: 'doc4', label: "Justificatif d'identité (CNI/Passeport)", type: 'identite', categories: ['Identité'] },
+      { id: 'doc1', label: "Avis d'imposition",                    type: 'avis_imposition' },
+      { id: 'doc2', label: 'Contrat de location / Quittance',      type: 'contrat_location' },
+      { id: 'doc3', label: 'RIB',                                   type: 'rib' },
+      { id: 'doc4', label: "Justificatif d'identité (CNI/Passeport)", type: 'justificatif_identite' },
     ],
   },
   {
@@ -64,9 +106,9 @@ const DEMARCHES_DATA = [
     categorie: 'Impôts',
     delaiEstime: 'Avant mai chaque année',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition N-1",               type: 'impots',    categories: ['Impôts'] },
-      { id: 'doc2', label: 'Bulletins de salaire',                 type: 'revenus',   categories: ['Revenus'] },
-      { id: 'doc3', label: 'Justificatifs de charges déductibles', type: 'assurance', categories: ['Assurance', 'Santé'] },
+      { id: 'doc1', label: "Avis d'imposition N-1",               type: 'avis_imposition' },
+      { id: 'doc2', label: 'Bulletins de salaire',                 type: 'bulletin_salaire' },
+      { id: 'doc3', label: 'Justificatifs de charges déductibles', type: 'justificatif_charges' },
     ],
   },
   {
@@ -76,9 +118,9 @@ const DEMARCHES_DATA = [
     categorie: 'Santé',
     delaiEstime: '2 à 4 semaines',
     documents: [
-      { id: 'doc1', label: "Justificatif d'identité",  type: 'identite',             categories: ['Identité'] },
-      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie', 'Téléphone'] },
-      { id: 'doc3', label: "Photo d'identité récente", type: 'identite',             categories: [] },
+      { id: 'doc1', label: "Justificatif d'identité",  type: 'justificatif_identite' },
+      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile' },
+      { id: 'doc3', label: "Photo d'identité récente", type: 'justificatif_identite' },
     ],
   },
   {
@@ -88,10 +130,10 @@ const DEMARCHES_DATA = [
     categorie: 'Revenus',
     delaiEstime: '1 à 3 mois',
     documents: [
-      { id: 'doc1', label: "Avis d'imposition",        type: 'impots',               categories: ['Impôts'] },
-      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile', categories: ['Logement', 'Énergie'], fraicheur_mois: 3 },
-      { id: 'doc3', label: 'RIB',                       type: 'rib',                  categories: ['Revenus'], matchSubcategory: 'rib' },
-      { id: 'doc4', label: "Justificatif d'identité",  type: 'identite',             categories: ['Identité'] },
+      { id: 'doc1', label: "Avis d'imposition",        type: 'avis_imposition' },
+      { id: 'doc2', label: 'Justificatif de domicile', type: 'justificatif_domicile' },
+      { id: 'doc3', label: 'RIB',                       type: 'rib' },
+      { id: 'doc4', label: "Justificatif d'identité",  type: 'justificatif_identite' },
     ],
   },
 ];
@@ -119,13 +161,6 @@ export function getCatColor(cat) {
   return CAT_COLORS[cat] ?? '#5a5a6a';
 }
 
-export function getPriorityCategories(docRequis) {
-  if (docRequis.type && PRIORITES_DOCUMENTS[docRequis.type]) {
-    return PRIORITES_DOCUMENTS[docRequis.type];
-  }
-  return docRequis.categories ?? [];
-}
-
 /**
  * Retourne la date la plus significative d'un document.
  * Priorité : docDate (date réelle du doc, "DD/MM/YYYY") > date_import (Firestore Timestamp) > date (IndexedDB number)
@@ -151,36 +186,83 @@ export function getDocDate(doc) {
   return null;
 }
 
-/** Vérifie si un document requis est présent dans les docs de l'utilisateur. */
+/**
+ * Valide un document requis contre les documents de l'utilisateur via une règle centralisée.
+ * Retourne { status: 'valid'|'warning'|'missing', doc, message }
+ *   valid   → document trouvé et conforme
+ *   warning → document trouvé dans la bonne catégorie mais ne passe pas les filtres
+ *   missing → aucun document dans les catégories acceptées
+ */
+export function validerDocument(regle, userDocuments) {
+  const ageMois = date => {
+    if (!date) return 999;
+    const now = new Date();
+    return (now.getFullYear() - date.getFullYear()) * 12
+           + (now.getMonth() - date.getMonth());
+  };
+
+  const trierParDate = arr => [...arr].sort((a, b) => {
+    const da = getDocDate(a) || new Date(0);
+    const db = getDocDate(b) || new Date(0);
+    return db - da;
+  });
+
+  /* 1. Filtrer par catégorie acceptée */
+  const byCat = userDocuments.filter(doc =>
+    regle.categoriesAcceptees.includes(doc.category || doc.categorie || '')
+  );
+
+  if (byCat.length === 0) {
+    console.log(`[Démarches] Règle "${regle.label}": manquant`);
+    return { status: 'missing', doc: null, message: null };
+  }
+
+  /* 2. Appliquer tous les filtres supplémentaires */
+  let candidats = [...byCat];
+
+  if (regle.subcategoriesExclues?.length > 0) {
+    candidats = candidats.filter(doc => {
+      const sub = (doc.sous_categorie || '').toLowerCase();
+      return !regle.subcategoriesExclues.some(exclu =>
+        sub.includes(exclu.toLowerCase())
+      );
+    });
+  }
+
+  if (regle.subcategoriesRequises?.length > 0) {
+    candidats = candidats.filter(doc => {
+      const sub = (doc.sous_categorie || '').toLowerCase();
+      const nom = (doc.name || '').toLowerCase();
+      return regle.subcategoriesRequises.some(requis =>
+        sub.includes(requis.toLowerCase()) || nom.includes(requis.toLowerCase())
+      );
+    });
+  }
+
+  if (regle.ageMaxMois !== null) {
+    candidats = candidats.filter(doc =>
+      ageMois(getDocDate(doc)) <= regle.ageMaxMois
+    );
+  }
+
+  if (candidats.length > 0) {
+    const meilleur = trierParDate(candidats)[0];
+    console.log(`[Démarches] Règle "${regle.label}": valide —`, meilleur.name);
+    return { status: 'valid', doc: meilleur, message: null };
+  }
+
+  /* Des docs existent dans la bonne catégorie mais ne passent pas les règles */
+  const plusRecent = trierParDate(byCat)[0];
+  console.log(`[Démarches] Règle "${regle.label}": avertissement —`, plusRecent?.name, '—', regle.messageEchec);
+  return { status: 'warning', doc: plusRecent, message: regle.messageEchec };
+}
+
+/** Vérifie si un document requis est valide (wrapper booléen pour getProgression). */
 export function checkDocumentPresent(docRequis, userDocuments) {
   if (docRequis.externe) return false;
-  const cats = getPriorityCategories(docRequis);
-  if (!cats.length) return false;
-
-  return userDocuments.some(doc => {
-    const cat = doc.category || doc.categorie || '';
-    if (!cats.includes(cat)) return false;
-
-    /* Filtre sous-catégorie (ex: RIB) */
-    if (docRequis.matchSubcategory) {
-      const term    = docRequis.matchSubcategory.toLowerCase();
-      const subcat  = (doc.sous_categorie ?? '').toLowerCase();
-      const docName = (doc.name ?? '').toLowerCase();
-      if (!subcat.includes(term) && !docName.includes(term)) return false;
-    }
-
-    /* Filtre de fraîcheur */
-    if (docRequis.fraicheur_mois) {
-      const d = getDocDate(doc);
-      if (!d) return false;
-      const maintenant = new Date();
-      const diffMois = (maintenant.getFullYear() - d.getFullYear()) * 12
-                     + (maintenant.getMonth() - d.getMonth());
-      if (diffMois > docRequis.fraicheur_mois) return false;
-    }
-
-    return true;
-  });
+  const regle = DOCUMENT_RULES[docRequis.type];
+  if (!regle) return false;
+  return validerDocument(regle, userDocuments).status === 'valid';
 }
 
 /** Calcule la progression d'une démarche selon les docs de l'utilisateur. */

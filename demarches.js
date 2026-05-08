@@ -5,9 +5,9 @@
 
 import {
   getDemarchesData, getCatColor,
-  checkDocumentPresent, getProgression,
+  DOCUMENT_RULES, validerDocument,
+  getProgression,
   searchDemarches, buildAssistantQuestion,
-  getPriorityCategories, getDocDate,
 } from './modules/demarches.js';
 import { initDB, getAllDocuments, getDocumentData } from './modules/documents.js';
 import { initAuth }               from './modules/auth.js';
@@ -50,64 +50,6 @@ function progressColor(pct) {
   return '#2a2a35';
 }
 
-/* ── Trouve le document utilisateur le plus récent correspondant ── */
-function findMatchingDoc(docRequis) {
-  if (docRequis.externe) return null;
-  const cats = getPriorityCategories(docRequis);
-  if (!cats.length) return null;
-
-  /* Chercher par ordre de priorité de catégorie */
-  for (const cat of cats) {
-    let candidates = userDocs.filter(doc =>
-      (doc.category || doc.categorie || '') === cat
-    );
-    if (!candidates.length) continue;
-
-    /* Filtre sous-catégorie (ex: RIB) — vérifie nom du fichier ET sous_categorie */
-    if (docRequis.matchSubcategory) {
-      const term = docRequis.matchSubcategory.toLowerCase();
-      candidates = candidates.filter(doc =>
-        (doc.sous_categorie ?? '').toLowerCase().includes(term) ||
-        (doc.name ?? '').toLowerCase().includes(term)
-      );
-      if (!candidates.length) continue;
-    }
-
-    /* Trier par date décroissante — plus récent en premier */
-    candidates.sort((a, b) => {
-      const da = getDocDate(a), db = getDocDate(b);
-      if (!da && !db) return 0;
-      if (!da) return 1;
-      if (!db) return -1;
-      return db - da;
-    });
-    return candidates[0];
-  }
-  return null;
-}
-
-/* ── Vérifie si un document est dans les N derniers mois ── */
-function isDocumentFrais(doc, moisMax) {
-  /* Chercher la date dans tous les champs possibles (vrais noms de champs) */
-  const dateStr = doc.docDate || doc.date_import || doc.date || null;
-  if (!dateStr) {
-    console.log('[Fraîcheur] Aucune date trouvée sur le document', doc.name);
-    return false;
-  }
-
-  const docDate = getDocDate(doc);
-  if (!docDate || isNaN(docDate.getTime())) {
-    console.log('[Fraîcheur] Date invalide :', dateStr, 'pour', doc.name);
-    return false;
-  }
-
-  const maintenant = new Date();
-  const diffMois = (maintenant.getFullYear() - docDate.getFullYear()) * 12
-                 + (maintenant.getMonth() - docDate.getMonth());
-
-  console.log('[Fraîcheur]', doc.name, '— Date du doc:', doc.docDate ?? dateStr, '— Diff mois:', diffMois, '— Max:', moisMax, '— Frais:', diffMois <= moisMax);
-  return diffMois <= moisMax;
-}
 
 function truncate(str, max = 28) {
   return str.length > max ? str.slice(0, max) + '…' : str;
@@ -141,32 +83,41 @@ function renderCard(d) {
       </div>`;
     }
 
-    const matched   = findMatchingDoc(doc);
-    const stale     = matched && doc.fraicheur_mois && !isDocumentFrais(matched, doc.fraicheur_mois);
+    const regle  = DOCUMENT_RULES[doc.type];
+    const result = regle
+      ? validerDocument(regle, userDocs)
+      : { status: 'missing', doc: null, message: null };
+    const { status, doc: matchedDoc, message: failMsg } = result;
 
-    /* Document trouvé mais périmé → traiter comme absent */
-    const effective = matched && !stale ? matched : null;
+    let itemClass, icon, rightHtml = '', failHtml = '';
 
-    let rightHtml = '';
-    if (stale) {
-      rightHtml = `<span class="d-doc-stale">Document trop ancien</span>`;
-    } else if (effective) {
+    if (status === 'valid') {
+      itemClass = 'd-doc-found';
+      icon      = '✅';
       rightHtml = `<span class="d-doc-match"
-          data-doc-id="${esc(String(effective.id ?? ''))}"
-          data-doc-url="${esc(effective.download_url ?? '')}"
-          data-doc-mime="${esc(effective.mimeType ?? '')}"
-          data-doc-name="${esc(effective.name ?? '')}">→ ${esc(truncate(effective.name))}</span>`;
+          data-doc-id="${esc(String(matchedDoc.id ?? ''))}"
+          data-doc-url="${esc(matchedDoc.download_url ?? '')}"
+          data-doc-mime="${esc(matchedDoc.mimeType ?? '')}"
+          data-doc-name="${esc(matchedDoc.name ?? '')}">→ ${esc(truncate(matchedDoc.name))}</span>`;
+    } else if (status === 'warning') {
+      itemClass = 'd-doc-warning';
+      icon      = '⚠️';
+      rightHtml = `<span class="d-doc-match"
+          data-doc-id="${esc(String(matchedDoc.id ?? ''))}"
+          data-doc-url="${esc(matchedDoc.download_url ?? '')}"
+          data-doc-mime="${esc(matchedDoc.mimeType ?? '')}"
+          data-doc-name="${esc(matchedDoc.name ?? '')}">→ ${esc(truncate(matchedDoc.name))}</span>`;
+      if (failMsg) failHtml = `<span class="d-doc-fail-msg">${esc(failMsg)}</span>`;
+    } else {
+      itemClass = 'd-doc-missing';
+      icon      = '⬜';
     }
 
-    const ribNote = doc.type === 'rib'
-      ? `<span class="d-doc-rib-note">💡 Document bancaire requis (pas une fiche de paie)</span>`
-      : '';
-
-    return `<div class="d-doc-item ${effective ? 'd-doc-found' : 'd-doc-missing'}">
-      <span class="d-doc-icon">${effective ? '✅' : '⬜'}</span>
+    return `<div class="d-doc-item ${itemClass}">
+      <span class="d-doc-icon">${icon}</span>
       <div class="d-doc-label">
         <span class="d-doc-req">${esc(doc.label)}</span>${rightHtml}
-        ${ribNote}
+        ${failHtml}
       </div>
     </div>`;
   }).join('');
@@ -375,6 +326,7 @@ async function init() {
   initAuth().then(user => {
     if (!user) return;
     subscribeDocuments(user.uid, docs => {
+      if (docs.length > 0) console.log('Structure doc Firestore:', JSON.stringify(docs[0]));
       userDocs = docs;
       renderGrid();
     });
