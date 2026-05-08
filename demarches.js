@@ -5,7 +5,7 @@
 
 import {
   getDemarchesData, getCatColor,
-  DOCUMENT_RULES, validerDocument,
+  trouverDocumentValide,
   getProgression,
   searchDemarches, buildAssistantQuestion,
 } from './modules/demarches.js';
@@ -74,52 +74,63 @@ function renderCard(d) {
 
   /* Liste des documents */
   const docsHtml = d.documents.map(doc => {
-    if (doc.externe) {
+
+    /* 📎 Document externe — lien uniquement, jamais compté */
+    if (doc.rule === null) {
       return `<div class="d-doc-item d-doc-external">
         <span class="d-doc-icon">🔗</span>
         <div class="d-doc-label">
-          <a href="${esc(doc.url || '#')}" target="_blank" rel="noopener" class="d-ext-link">${esc(doc.label)}</a>
+          <a href="${esc(doc.lien || '#')}" target="_blank" rel="noopener" class="d-ext-link">${esc(doc.labelManuel || doc.label)}</a>
         </div>
       </div>`;
     }
 
-    const regle  = DOCUMENT_RULES[doc.type];
-    const result = regle
-      ? validerDocument(regle, userDocs)
-      : { status: 'missing', doc: null, message: null };
-    const { status, doc: matchedDoc, message: failMsg } = result;
+    const result = trouverDocumentValide(doc, userDocs);
 
-    let itemClass, icon, rightHtml = '', failHtml = '';
-
-    if (status === 'valid') {
-      itemClass = 'd-doc-found';
-      icon      = '✅';
-      rightHtml = `<span class="d-doc-match"
-          data-doc-id="${esc(String(matchedDoc.id ?? ''))}"
-          data-doc-url="${esc(matchedDoc.download_url ?? '')}"
-          data-doc-mime="${esc(matchedDoc.mimeType ?? '')}"
-          data-doc-name="${esc(matchedDoc.name ?? '')}">→ ${esc(truncate(matchedDoc.name))}</span>`;
-    } else if (status === 'warning') {
-      itemClass = 'd-doc-warning';
-      icon      = '⚠️';
-      rightHtml = `<span class="d-doc-match"
-          data-doc-id="${esc(String(matchedDoc.id ?? ''))}"
-          data-doc-url="${esc(matchedDoc.download_url ?? '')}"
-          data-doc-mime="${esc(matchedDoc.mimeType ?? '')}"
-          data-doc-name="${esc(matchedDoc.name ?? '')}">→ ${esc(truncate(matchedDoc.name))}</span>`;
-      if (failMsg) failHtml = `<span class="d-doc-fail-msg">${esc(failMsg)}</span>`;
-    } else {
-      itemClass = 'd-doc-missing';
-      icon      = '⬜';
+    /* ✅ Trouvé et valide */
+    if (result?.valide === true) {
+      const m = result.doc;
+      return `<div class="d-doc-item d-doc-valid">
+        <span class="d-doc-icon">✅</span>
+        <div class="d-doc-label">
+          <span class="d-doc-req">${esc(doc.label)}</span>
+          <span class="d-doc-match"
+              data-doc-id="${esc(String(m.id ?? ''))}"
+              data-doc-url="${esc(m.download_url ?? '')}"
+              data-doc-mime="${esc(m.mimeType ?? '')}"
+              data-doc-name="${esc(m.name ?? '')}">→ ${esc(truncate(m.name ?? ''))}</span>
+        </div>
+      </div>`;
     }
 
-    return `<div class="d-doc-item ${itemClass}">
-      <span class="d-doc-icon">${icon}</span>
+    /* ⚠️ Trouvé mais invalide (trop vieux, mauvais type) */
+    if (result?.valide === false) {
+      const m = result.doc;
+      return `<div class="d-doc-item d-doc-invalid">
+        <span class="d-doc-icon">⚠️</span>
+        <div class="d-doc-label">
+          <span class="d-doc-req">${esc(doc.label)}</span>
+          <span class="d-doc-match"
+              data-doc-id="${esc(String(m.id ?? ''))}"
+              data-doc-url="${esc(m.download_url ?? '')}"
+              data-doc-mime="${esc(m.mimeType ?? '')}"
+              data-doc-name="${esc(m.name ?? '')}">→ ${esc(truncate(m.name ?? ''))}</span>
+          <span class="d-doc-fail-msg">${esc(result.raison ?? '')}</span>
+        </div>
+      </div>`;
+    }
+
+    /* ⬜ Non trouvé */
+    const optTag = doc.optionnel
+      ? `<span class="d-doc-optional">(optionnel)</span>`
+      : '';
+    return `<div class="d-doc-item d-doc-missing">
+      <span class="d-doc-icon">⬜</span>
       <div class="d-doc-label">
-        <span class="d-doc-req">${esc(doc.label)}</span>${rightHtml}
-        ${failHtml}
+        <span class="d-doc-req">${esc(doc.label)}</span>${optTag}
       </div>
     </div>`;
+
   }).join('');
 
   const question = encodeURIComponent(buildAssistantQuestion(d, prog));
@@ -326,7 +337,7 @@ async function init() {
   initAuth().then(user => {
     if (!user) return;
     subscribeDocuments(user.uid, docs => {
-      if (docs.length > 0) console.log('Structure doc Firestore:', JSON.stringify(docs[0]));
+      if (docs.length > 0) console.log('STRUCTURE DOC:', JSON.stringify(docs[0], null, 2));
       userDocs = docs;
       renderGrid();
     });
