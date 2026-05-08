@@ -85,6 +85,23 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <!-- ── Visionneuse de document ── -->
+  <div id="viewer-modal" class="viewer-modal hidden" role="dialog" aria-modal="true">
+    <div class="viewer-box">
+      <div class="viewer-header">
+        <span id="viewer-name" class="viewer-name"></span>
+        <button id="viewer-close" class="viewer-close" title="Fermer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="viewer-content" class="viewer-content"></div>
+    </div>
+  </div>
+
   <!-- ── Bottom Nav (mobile uniquement) ── -->
   <nav class="bottom-nav" aria-label="Navigation principale">
 

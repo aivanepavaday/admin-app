@@ -8,7 +8,7 @@ import {
   checkDocumentPresent, getProgression,
   searchDemarches, buildAssistantQuestion,
 } from './modules/demarches.js';
-import { initDB, getAllDocuments } from './modules/documents.js';
+import { initDB, getAllDocuments, getDocumentData } from './modules/documents.js';
 import { initAuth }               from './modules/auth.js';
 import { subscribeDocuments }     from './modules/firestore-sync.js';
 
@@ -91,7 +91,11 @@ function renderCard(d) {
     }
     const matched = findMatchingDoc(doc);
     const matchSpan = matched
-      ? `<span class="d-doc-match">→ ${esc(truncate(matched.name))}</span>`
+      ? `<span class="d-doc-match"
+              data-doc-id="${esc(String(matched.id ?? ''))}"
+              data-doc-url="${esc(matched.download_url ?? '')}"
+              data-doc-mime="${esc(matched.mimeType ?? '')}"
+              data-doc-name="${esc(matched.name ?? '')}">→ ${esc(truncate(matched.name))}</span>`
       : '';
     return `<div class="d-doc-item ${matched ? 'd-doc-found' : 'd-doc-missing'}">
       <span class="d-doc-icon">${matched ? '✅' : '⬜'}</span>
@@ -193,6 +197,88 @@ function renderGrid() {
     body.querySelectorAll('a').forEach(a => a.addEventListener('click', e => e.stopPropagation()));
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   VISIONNEUSE DE DOCUMENT
+   ═══════════════════════════════════════════════════════════════════ */
+
+const viewerModal   = document.getElementById('viewer-modal');
+const viewerName    = document.getElementById('viewer-name');
+const viewerContent = document.getElementById('viewer-content');
+let _blobUrl = null;
+
+function closeViewer() {
+  viewerModal.classList.add('hidden');
+  viewerContent.innerHTML = '';
+  if (_blobUrl) { URL.revokeObjectURL(_blobUrl); _blobUrl = null; }
+}
+
+document.getElementById('viewer-close').addEventListener('click', closeViewer);
+viewerModal.addEventListener('click', e => { if (e.target === viewerModal) closeViewer(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
+
+async function openDocViewer({ id, download_url: url, mimeType, name }) {
+  viewerName.textContent = name;
+  viewerContent.innerHTML = `<div class="viewer-unsupported">Chargement…</div>`;
+  viewerModal.classList.remove('hidden');
+
+  const dlBtnHtml = src => `
+    <a href="${esc(src)}" download="${esc(name)}" class="viewer-download-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>Télécharger
+    </a>`;
+
+  const render = (src, mime) => {
+    if (mime === 'application/pdf') {
+      viewerContent.innerHTML = `<div class="viewer-pdf-wrap">
+        <iframe src="${esc(src)}" title="${esc(name)}"></iframe>
+        <div class="viewer-pdf-footer">${dlBtnHtml(src)}</div>
+      </div>`;
+    } else if (mime?.startsWith('image/')) {
+      viewerContent.innerHTML = `<img src="${esc(src)}" alt="${esc(name)}" />`;
+    } else {
+      viewerContent.innerHTML = `<div class="viewer-unsupported">
+        <p>Aperçu non disponible pour ce type de fichier.</p>
+        ${dlBtnHtml(src)}
+      </div>`;
+    }
+  };
+
+  try {
+    if (url) {
+      /* Document Firestore : URL directe */
+      render(url, mimeType);
+    } else if (id) {
+      /* Document local IndexedDB */
+      const fullDoc = await getDocumentData(Number(id));
+      if (!fullDoc) throw new Error('Document introuvable');
+      const blob = new Blob([fullDoc.data], { type: fullDoc.mimeType });
+      if (_blobUrl) URL.revokeObjectURL(_blobUrl);
+      _blobUrl = URL.createObjectURL(blob);
+      render(_blobUrl, fullDoc.mimeType);
+    } else {
+      throw new Error('Aucune source disponible');
+    }
+  } catch {
+    viewerContent.innerHTML = `<div class="viewer-unsupported">Impossible de charger le document.</div>`;
+  }
+}
+
+/* Délégation : clic sur un nom de document trouvé */
+deGrid.addEventListener('click', e => {
+  const match = e.target.closest('.d-doc-match[data-doc-name]');
+  if (!match) return;
+  e.stopPropagation();
+  openDocViewer({
+    id:           match.dataset.docId,
+    download_url: match.dataset.docUrl || null,
+    mimeType:     match.dataset.docMime,
+    name:         match.dataset.docName,
+  });
+});
 
 /* ── Recherche ── */
 searchInput.addEventListener('input', () => {
