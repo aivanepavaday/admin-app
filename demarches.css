@@ -125,17 +125,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); min-
   flex-direction: column;
   gap: .65rem;
   transition: border-color .15s;
-  position: relative;
-  overflow: hidden;
 }
 
-/* Barre colorée en haut selon la catégorie */
-.demarche-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: var(--cat-color, var(--accent));
-  border-radius: var(--radius) var(--radius) 0 0;
-}
 
 .demarche-card:hover { border-color: var(--border-hi); }
 .demarche-card.d-open { border-color: var(--border-hi); }

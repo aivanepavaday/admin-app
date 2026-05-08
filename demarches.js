@@ -86,12 +86,10 @@ function renderCard(d) {
   const question = encodeURIComponent(buildAssistantQuestion(d, prog));
 
   return `
-    <div class="demarche-card${isOpen ? ' d-open' : ''}" data-id="${esc(d.id)}"
-         style="--cat-color:${catColor}">
+    <div class="demarche-card${isOpen ? ' d-open' : ''}" data-id="${esc(d.id)}">
 
       <!-- En-tête cliquable -->
       <div class="d-header">
-        <span class="d-icon" aria-hidden="true">${d.icone}</span>
         <div class="d-info">
           <div class="d-title">${esc(d.titre)}</div>
           <div class="d-meta">
